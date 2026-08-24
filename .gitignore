@@ -15,5 +15,8 @@ eval/reports/*
 !eval/reports/.gitkeep
 !eval/reports/examples/
 
+# local smoke-test logs — real audit schema lands at Milestone 2, this is throwaway
+integration/razorpay_test_mode/webhook_smoke_test_log.jsonl
+
 # os
 .DS_Store
