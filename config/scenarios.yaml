@@ -1,0 +1,11 @@
+# scenarios.yaml — sensitivity-sweep scenario definitions. STUB.
+#
+# Real content lands at Milestone 4 (Day 7), once sim_params.yaml is frozen and a baseline-vs-adaptive
+# comparison already runs (M2/M3). Each scenario below will pick one point from each ASSUMPTION range in
+# sim_params.yaml so the full comparison can be re-run per scenario and reported as a distribution, not a
+# single number — see docs/architecture.md and the eval methodology this repo implements.
+
+scenarios: []
+# planned: low / mid / high combinations across the highest-impact ASSUMPTION-tagged parameters
+# (A8 congestion degradation, A10-derived insufficient-funds probability, A15 balance volatility,
+# A16 revocation trigger threshold, A22 amount bands) — not a full factorial grid, a deliberate 3-5 point sweep.

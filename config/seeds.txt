@@ -1,0 +1,33 @@
+# Fixed seed list for reproducibility. Every number cited in any report/README/deck must be regenerable
+# from this exact list plus the frozen sim_params.yaml. Do not add or remove seeds after results exist
+# without a CHANGELOG entry in assumptions.md.
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30

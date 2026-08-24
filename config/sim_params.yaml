@@ -1,0 +1,130 @@
+# sim_params.yaml — SCHEMA DRAFT, v0, NOT YET FROZEN
+#
+# Per the anti-circularity requirement in eval/ methodology: this file must be reviewed, finalized, and
+# committed with a recorded git hash BEFORE the adaptive policy is written or evaluated against it. Once
+# frozen, any change requires a dated entry in assumptions.md's CHANGELOG, with an explicit statement of
+# whether adaptive-policy results were already observed.
+#
+# Every field below carries an `assumption_id` pointing to assumptions.md, and a `status` of FACT or
+# ASSUMPTION. Fields marked ASSUMPTION carry a `range` (swept in sensitivity analysis) rather than a single
+# point value wherever the methodology requires it — point values here are draft placeholders only.
+
+meta:
+  frozen: false
+  frozen_at: null
+  frozen_commit_hash: null
+
+retry_policy_shared:
+  max_attempts:
+    value: 4
+    status: FACT
+    assumption_id: A20
+    source: "Razorpay docs — subscription moves to `halted` after 4 failed attempts"
+
+  card_retry_cadence_days:
+    value: [1]              # placeholder: only "following day" is documented; UPI/multi-attempt spacing unknown
+    status: ASSUMPTION
+    assumption_id: A1
+    note: "Conservatively biased toward the most retry-friendly plausible interval, per project brief"
+
+  emandate_bank_holiday_shift:
+    rule: "T-1, or T-3 if both T and T-1 are bank holidays"
+    status: FACT
+    assumption_id: A3
+    source: "Razorpay Payment Retries docs (Emandate section)"
+
+failure_classes:
+  insufficient_funds:
+    per_attempt_failure_probability:
+      status: ASSUMPTION
+      assumption_id: A10
+      note: "Derived from balance_evolution process below, not a looked-up number"
+
+  notification_undelivered:
+    delivery_failure_rate:
+      range: [0.02, 0.10]   # placeholder range, generic messaging-industry benchmark, not India/Razorpay-specific
+      status: ASSUMPTION
+      assumption_id: A17
+    post_failure_min_retry_hours:
+      value: 24
+      status: FACT
+      assumption_id: A5
+      source: "RBI e-mandate framework — 24h minimum pre-debit notice"
+
+  npci_congestion:
+    bad_window_local_time: ["10:00", "13:00"]
+    status: FACT
+    assumption_id: A7
+    source: "NPCI 2026 Traffic Management framework (Republic World, May 2026) — reverify before submission"
+    success_probability_degradation:
+      range: [0.10, 0.50]  # placeholder — no public magnitude exists
+      status: ASSUMPTION
+      assumption_id: A8
+
+  bank_technical_decline:
+    base_rate:
+      status: ASSUMPTION
+      assumption_id: A18
+      note: "No public source found at all for this failure class — least-evidenced in the taxonomy"
+
+  mandate_expired:
+    recoverable_by_retry_timing: false
+    status: FACT
+    assumption_id: A19
+
+  mandate_revoked:
+    recoverable_by_retry_timing: false
+    status: FACT
+    assumption_id: A19
+    revocation_trigger_consecutive_failures:
+      range: [2, 4]        # placeholder — no public source for this threshold
+      status: ASSUMPTION
+      assumption_id: A16
+
+balance_evolution:
+  status: ASSUMPTION
+  assumption_id: [A14, A15]
+  note: "Largest single assumption cluster in the simulator. Shape (rise at income event, decay between
+         events) is an inference from general financial-behavior patterns, not a cited curve. Decay rate
+         and volatility are placeholders, swept in sensitivity analysis, never fixed to one guessed value."
+  decay_rate_range: [0.02, 0.08]     # placeholder, per-day fraction of balance spent
+  volatility_range: [0.05, 0.20]     # placeholder, coefficient of variation
+
+income_event_population_mixture:
+  status: ASSUMPTION
+  assumption_id: [A12, A13]
+  note: "Population-level clustering is MEDIUM-HIGH confidence; individual adherence is LOW. Modeled as a
+         mixture of customer types, not one universal date."
+  types:
+    - name: clustered_month_end_or_1st
+      weight_range: [0.3, 0.5]
+    - name: clustered_near_7th
+      weight_range: [0.2, 0.4]
+    - name: irregular_no_clear_cycle
+      weight_range: [0.2, 0.4]
+
+mandate_amount_distribution:
+  status: ASSUMPTION
+  assumption_id: A22
+  note: "No public per-mandate amount distribution sourced for OTT/SIP/EMI mix. Placeholder bands only —
+         needed for the ₹-recovered metric, the direct evidence for the rubric's 'measured money' clause."
+  bands_inr:
+    ott_subscription: [99, 999]
+    sip_investment: [500, 25000]
+    emi: [1000, 50000]
+
+compliance_floors:
+  otp_free_ceiling_inr:
+    value: 15000
+    higher_ceiling_inr: 100000
+    higher_ceiling_categories: ["insurance", "mutual_funds", "credit_card_bills"]
+    status: FACT
+    assumption_id: A6
+    source: "RBI E-Mandate Framework 2026 — reverify immediately before submission, this figure has a revision history"
+
+metrics:
+  wasted_attempt_epsilon:
+    value: 0.01
+    status: ASSUMPTION
+    assumption_id: A23
+    note: "Frozen here before any evaluation run. Never redefined after seeing results."

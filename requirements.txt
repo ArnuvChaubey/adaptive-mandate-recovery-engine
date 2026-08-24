@@ -1,0 +1,9 @@
+razorpay>=1.4          # official test-mode API client
+fastapi>=0.115          # webhook receiver
+uvicorn>=0.30           # ASGI server for the webhook receiver
+python-dotenv>=1.0      # loads .env into environment
+pyyaml>=6.0             # sim_params.yaml / scenarios.yaml
+numpy>=1.26             # stochastic simulation (balance evolution)
+pandas>=2.2             # eval report tables
+pytest>=8.0             # invariant + reproducibility tests
+anthropic>=0.40         # narrator layer (M5)

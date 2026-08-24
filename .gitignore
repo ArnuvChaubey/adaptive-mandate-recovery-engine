@@ -1,0 +1,19 @@
+# secrets — this repo is public, never commit real credentials
+.env
+*.pem
+*.key
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# eval output — only curated example reports get committed, rest is regenerable
+eval/reports/*
+!eval/reports/.gitkeep
+!eval/reports/examples/
+
+# os
+.DS_Store
