@@ -1,9 +1,9 @@
-# sim_params.yaml — SCHEMA DRAFT, v0, NOT YET FROZEN
+# sim_params.yaml — FROZEN as of the commit hash recorded in meta.frozen_commit_hash below.
 #
-# Per the anti-circularity requirement in eval/ methodology: this file must be reviewed, finalized, and
-# committed with a recorded git hash BEFORE the adaptive policy is written or evaluated against it. Once
-# frozen, any change requires a dated entry in assumptions.md's CHANGELOG, with an explicit statement of
-# whether adaptive-policy results were already observed.
+# Per the anti-circularity requirement in eval/ methodology: this file was reviewed and committed
+# BEFORE any policy code was written or evaluated against it. Any change from here forward requires
+# a dated entry in assumptions.md's CHANGELOG, with an explicit statement of whether adaptive-policy
+# results were already observed before the change.
 #
 # Every field below carries an `assumption_id` pointing to assumptions.md, and a `status` of FACT or
 # ASSUMPTION. Fields marked ASSUMPTION carry a `range` (swept in sensitivity analysis) rather than a single
