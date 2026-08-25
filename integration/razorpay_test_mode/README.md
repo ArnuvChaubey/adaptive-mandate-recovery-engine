@@ -10,3 +10,21 @@ Day 2: webhook receiver behind a public tunnel (ngrok), first real end-to-end we
 into the same `audit/` schema as the simulator, tagged `source: live_test_mode`.
 Milestone 6 (Day 10): full ~15-20 case scripted batch run, timed close to the video-recording date to respect
 the 3-day test-mode token window (A29).
+
+## Day 2 finding: subscription card tokenization failed server-side in test mode
+
+Multiple attempts to authenticate a test Subscription's card (via the hosted `short_url` checkout) failed
+with a generic "Payment could not be completed" message. The webhook log later confirmed these were real,
+signed `payment.failed` events from Razorpay's backend, every one carrying
+`"error_step": "card_mandate_process", "error_reason": "server_error"` -- a genuine platform-side failure in
+the RBI CoFT card-tokenization step during test mode, not a client-side mistake. Razorpay's own
+`subscriptions/test-guide` documentation describes a simpler Pay -> Success flow with no OTP step at all,
+which no longer matches current product behavior -- likely documentation lag behind a tightened tokenization
+requirement.
+
+**Workaround:** `create_test_payment_link.py` creates a plain one-time Payment Link instead of authenticating
+a Subscription. One-time payments don't require card tokenization, so they route through the simple mock
+bank Success/Failure page and produce a real `payment.authorized` / `payment.captured` pair -- sufficient to
+prove the tunnel + signature verification + audit logging mechanism end to end. Full subscription-lifecycle
+authentication (`create_test_subscription.py`) remains unresolved and is deferred to Milestone 6, with more
+time budgeted to either retry it or scope the live test-mode subset around one-time payments instead.

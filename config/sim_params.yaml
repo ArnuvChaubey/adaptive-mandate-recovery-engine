@@ -10,9 +10,9 @@
 # point value wherever the methodology requires it — point values here are draft placeholders only.
 
 meta:
-  frozen: false
-  frozen_at: null
-  frozen_commit_hash: null
+  frozen: true
+  frozen_at: "2026-08-25T00:00:00Z"
+  frozen_commit_hash: null  # filled in immediately after this commit, see git log
 
 retry_policy_shared:
   max_attempts:
