@@ -50,6 +50,7 @@ def check_notification_timing(
             invariant_id=INVARIANT_NOTIFICATION_TIMING,
             description=description,
             passed=True,
+            applicable=False,
             detail="No retry scheduled; invariant not applicable",
         )
 
@@ -92,6 +93,7 @@ def check_otp_ceiling(proposed: ProposedDecision, config: dict) -> ComplianceChe
             invariant_id=INVARIANT_OTP_CEILING,
             description=description,
             passed=True,
+            applicable=False,
             detail="No auto-debit scheduled; ceiling not applicable to an escalation decision",
         )
 

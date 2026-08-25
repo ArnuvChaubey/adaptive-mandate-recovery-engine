@@ -54,11 +54,17 @@ class ComplianceCheck:
 
     Recording checks that *passed* matters as much as ones that blocked something: it's the
     difference between "we never violated the rule" and "we never tested the rule."
+
+    `applicable` distinguishes a rule that was tested and satisfied from one that didn't apply to
+    this decision at all. Both are non-blocking, but conflating them makes the audit trail read
+    misleadingly -- an escalation triggered *because* an amount exceeds the OTP ceiling should not
+    also report "OTP ceiling: satisfied".
     """
     invariant_id: str
     description: str
     passed: bool
     detail: str = ""
+    applicable: bool = True
 
 
 @dataclass(frozen=True)
