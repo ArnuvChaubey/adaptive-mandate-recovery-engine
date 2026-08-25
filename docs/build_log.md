@@ -529,3 +529,54 @@ attributable to a named mechanism.
 with the mechanism identified instead of hand-waved. The change is logged in `assumptions.md` as
 policy iteration after seeing results — the simulator config was untouched, because the freeze
 protects ground truth, not the thing being engineered against it.
+
+---
+
+## 17. The live batch couldn't be what the plan said it would be
+
+**What happened.** M6 was planned as "a scripted ~15–20 case live test-mode batch." Building it
+surfaced that this is not achievable on a standard test account:
+
+- Completing a payment requires Razorpay's hosted checkout, which needs a human and actively
+  resists automation (entry 4).
+- Razorpay's **server-to-server API**, which would allow programmatic payment creation, requires
+  contacting their support team to enable. Not available on a fresh account.
+- There is **no test-mode payment-simulation endpoint**. The dashboard's "Charge this now" control
+  is UI-only and applies to subscriptions, which is the path that fails server-side.
+
+So "20 scripted completed payments" was never possible, and no amount of effort would have made it so.
+
+**How we got out — by asking what the milestone was actually for.** Its purpose (A30) was never a
+statistically powered sample; it was evidence that the system talks to real Razorpay APIs end to end.
+That does not require 20 completed *payments*. It requires the real policy engine operating on real
+entities, through the real API, into the real audit schema. So the batch became:
+
+1. create a payment link via the real API,
+2. re-fetch it via the real API (round-trip, not fire-and-forget),
+3. map a **documented Razorpay decline code** onto our failure taxonomy,
+4. run the actual `AdaptivePolicy` on it,
+5. run the actual compliance invariants,
+6. write a `DecisionRecord` tagged `source: live_test_mode`.
+
+The policy cannot tell a real entity from a simulated one — that is what the `MandateView` boundary
+buys. Result: **9 real entities, 9 policy decisions, 1 compliant escalation (a ₹41,000 case correctly
+routed to re-authentication rather than a retry that would be refused), 0 compliance violations.**
+
+**A second constraint found by running it.** The first attempt died on
+`BadRequestError: Too many requests` after five entities — Razorpay rate-limits test-mode writes.
+Fixed with inter-call pacing and exponential backoff that *degrades* the batch rather than aborting
+it, so a rate limit costs a few cases instead of discarding every decision already recorded. The run
+log shows it backing off, skipping three cases, and recovering. Handling this is part of what "the
+integration works" means, not an inconvenience around it.
+
+**A third thing, found by a test.** The decline-code mapping originally listed `server_error`
+alongside Razorpay's documented codes. A test asserting "every mapped code has a test card" failed on
+it — correctly. `server_error` is real (it appeared in every signed webhook from the Day 2
+tokenisation failures) but Razorpay publishes no card that triggers it on demand. Those are different
+grades of evidence, so the mapping now separates `DOCUMENTED_ERROR_REASONS` (triggerable, verifiable)
+from `OBSERVED_ERROR_REASONS` (seen in real traffic, not reproducible), and a test enforces the split.
+
+**What it demonstrates.** Separating a milestone's stated form from its actual purpose, and being
+explicit that the count is 9 rather than 20 because of a platform limit — not quietly reporting 9 as
+though it were the plan. The live batch was never going to carry a statistical claim, so losing
+eleven cases to a rate limit costs nothing except the appearance of a rounder number.
