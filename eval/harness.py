@@ -25,6 +25,7 @@ from compliance.invariants.rules import ProposedDecision, evaluate_all
 from eval.metrics.definitions import AttemptOutcome, MandateOutcome
 from policies.policy_interface.base import MandateView, Policy, PolicyState
 from simulator.balance_evolution.process import simulate_balance
+from simulator.config_loader import sample_from_range
 from simulator.failure_events.generators import AttemptContext, success_probability
 from simulator.mandate import UNRECOVERABLE_CLASSES, FailureClass, Mandate
 
@@ -56,6 +57,23 @@ def _assign_failure_class(rng: np.random.Generator) -> FailureClass:
     classes = list(FAILURE_CLASS_WEIGHTS.keys())
     weights = np.array(list(FAILURE_CLASS_WEIGHTS.values()))
     return classes[rng.choice(len(classes), p=weights / weights.sum())]
+
+
+def _first_failure_hour(failure_class: FailureClass, rng: np.random.Generator) -> int:
+    """Time-of-day of the initial failure, consistent with its cause.
+
+    Added after the sensitivity sweep returned byte-identical results for the severe- and
+    mild-congestion scenarios. Root cause: every mandate was created at midnight, retries inherited
+    that time, and the NPCI window (10:00-13:00) therefore never triggered for anyone. The congestion
+    failure class was inert, and the adaptive policy's congestion-avoidance rule was providing
+    exactly zero measured value while appearing to work.
+
+    A congestion failure by definition happened *during* the congestion window, so that is when it is
+    placed. Other classes are spread across plausible batch-processing hours.
+    """
+    if failure_class == FailureClass.NPCI_CONGESTION:
+        return int(rng.integers(10, 13))
+    return int(rng.integers(0, 24))
 
 
 def _first_consistent_failure_day(
@@ -124,7 +142,20 @@ def run_policy_on_batch(
         first_failure_day = _first_consistent_failure_day(
             failure_class, mandate, trajectory, rng
         )
-        current_time = mandate.created_at + timedelta(days=first_failure_day)
+        current_time = mandate.created_at + timedelta(
+            days=first_failure_day, hours=_first_failure_hour(failure_class, rng)
+        )
+
+        # A16: how many consecutive failures this customer tolerates before revoking the mandate
+        # themselves. Drawn once per customer and held fixed -- a customer's patience is a property
+        # of the customer, not something resampled at each attempt.
+        revocation_threshold = sample_from_range(
+            rng,
+            config["failure_classes"]["mandate_revoked"][
+                "revocation_trigger_consecutive_failures"
+            ]["range"],
+        )
+        revoked_mid_sequence = False
         attempt_number = 1
         consecutive_failures = 1
         recovered = False
@@ -242,6 +273,39 @@ def run_policy_on_batch(
 
             attempt_number += 1
             consecutive_failures += 1
+
+            # A16: the customer's own patience runs out. A mandate that was recoverable becomes
+            # permanently unrecoverable because the customer revoked it after repeated failed
+            # debits -- consistent with the ~20M monthly UPI Autopay revocations attributed to
+            # low balances (A9).
+            #
+            # This is the real cost of spending attempts badly, and it was missing entirely: before
+            # this, `mandate_revoked` only ever appeared as a starting condition that both policies
+            # immediately stopped on, so the revocation threshold was never read and the
+            # early_revocation sensitivity scenario was silently a no-op.
+            if consecutive_failures >= revocation_threshold:
+                revoked_mid_sequence = True
+                log.append(
+                    DecisionRecord(
+                        decision_id=f"{policy.name}_{mandate.mandate_id}_revoked",
+                        mandate_id=mandate.mandate_id,
+                        policy_name=policy.name,
+                        decision_type=DecisionType.STOPPED_UNRECOVERABLE,
+                        rule_id="SIM-REVOKED",
+                        rule_description=(
+                            f"Customer revoked the mandate after {consecutive_failures} consecutive "
+                            "failed debits; no further recovery is possible"
+                        ),
+                        failure_class=FailureClass.MANDATE_REVOKED.value,
+                        attempt_number=attempt_number,
+                        decided_at=current_time,
+                        source=Source.SIMULATION,
+                        escalation_action=EscalationAction.NO_ACTION_POSSIBLE,
+                        compliance_checks=[],
+                        amount_inr=mandate.amount_inr,
+                    )
+                )
+                break
 
         mandate_outcomes.append(
             MandateOutcome(

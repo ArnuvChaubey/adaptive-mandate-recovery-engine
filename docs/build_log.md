@@ -354,3 +354,84 @@ simulator-side object.
 **What it demonstrates.** The difference between a guarantee that holds and a guarantee you can
 *prove* holds. Non-circularity claims are worth exactly as much as their enforcement mechanism —
 "we were careful" is not an enforcement mechanism.
+
+---
+
+## 13. Our baseline was a strawman, and we'd built it on purpose without realising
+
+**What happened.** The project brief was explicit: *"design the baseline conservatively (i.e. bias
+toward the most retry-friendly plausible interval) so any error favors the harder comparison case,
+not the easier one."* We implemented that as cadence `[1]` — retry the next day, every time — reading
+"retry-friendly" as "retries eagerly." It also matched the one documented fact: *"We automatically
+retry the payment on the following day."*
+
+Before building the sensitivity sweep, a quick check of what the baseline actually scores under
+different cadences:
+
+| assumed cadence | baseline recovery |
+|---|---|
+| `[1]` — next day, every time | **63.5%** |
+| `[1, 2, 3]` | 68.2% |
+| `[1, 3, 7]` | 71.5% |
+| `[7, 7, 7]` | 73.7% |
+| `[3, 7, 14]` — spread backoff | **74.6%** |
+
+**Why it mattered.** `[1]` is the *weakest* plausible fixed schedule, by eleven points. In a world
+dominated by insufficient funds, retrying tomorrow hammers an account that is still empty; spreading
+attempts out catches the next income event by accident. So "retry-friendly" was exactly backwards —
+we had built the most flattering possible comparison and called it conservative. Every lift number to
+that point was inflated, and a judge who ran this same check would have found it in five minutes.
+
+**How we got out.** Baseline cadence became a swept dimension with five plausible schedules, and the
+**headline is now reported against the strongest baseline we could construct**, not the documented
+one. That single change cut the recovery-rate lift from roughly **+36% to +11.8%**.
+
+The documented `[1]` reading is still reported — it is the only cadence with any public evidence
+behind it — but it is presented as the *optimistic* end of a range, never as the claim.
+
+**What it demonstrates.** Checking whether your own control condition is fair, and preferring the
+number that survives the hardest version of the comparison. A +11.8% lift you can defend is worth
+more than a +36% lift that dissolves under one question.
+
+---
+
+## 14. The sweep found two dead mechanisms by returning identical answers
+
+**What happened.** First full sensitivity run, 15 scenarios. Three of them —
+`severe_congestion`, `mild_congestion`, and `early_revocation` — returned results **byte-identical**
+to the reference case. Overrides that should have moved outcomes moved nothing.
+
+**Diagnosis, bug 1 — the congestion window never existed.** Mandates were created at midnight, and
+every retry inherited that time-of-day. NPCI's documented deprioritisation window is 10:00–13:00, so
+**no attempt in the entire simulation ever fell inside it.** The `npci_congestion` failure class was
+inert, and the adaptive policy's congestion-avoidance rule (ADAPT-005) had been contributing exactly
+zero while appearing to work — a rule that passed its unit test, ran in production, and did nothing.
+
+**Diagnosis, bug 2 — customers could never give up.** `mandate_revoked` only ever appeared as a
+*starting* condition, which both policies immediately stopped on. So A16's revocation threshold was
+never read by anything, and the "customer revokes after repeated failures" dynamic — the single
+mechanism that makes wasting attempts genuinely costly, and the one grounded in the ~20M monthly UPI
+Autopay revocations — was absent from the model entirely.
+
+**How we got out.** Failure times are now consistent with their cause (a congestion failure happens
+*during* the congestion window, other classes spread across plausible processing hours), and a
+customer can now revoke mid-sequence once consecutive failures exceed their patience threshold,
+converting a recoverable mandate into a permanent loss.
+
+**The part that deserves scrutiny.** Both fixes **increased** our own measured lift (median
++26.7% → +36.1%), which is the direction that should never be accepted without justification. The
+honest accounting:
+
+- Congestion now hurts the baseline because the baseline retries at the same time of day and lands
+  back in the window, while the adaptive policy shifts to a documented better window. That is the
+  rule doing the job it was written to do — and it was previously credited with nothing.
+- Revocation now punishes any policy that burns attempts, which is a cost the model was simply
+  missing.
+
+Neither mechanism was invented to help; both were already declared assumptions (A7, A16) that turned
+out not to be wired to anything. But because they flatter us, the conservative headline — **+11.8%
+against the strongest baseline** — remains the number we quote, not the median.
+
+**What it demonstrates.** The sweep paying for itself immediately: not by confirming the result, but
+by exposing two mechanisms that were silently doing nothing. A scenario that changes an input and
+produces an identical output is not a passing test — it is a bug report.

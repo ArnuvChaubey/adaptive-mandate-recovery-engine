@@ -59,6 +59,23 @@ Per the anti-circularity requirement: `config/sim_params.yaml` must be frozen an
 policy is evaluated against it. Any change made after seeing evaluation results is logged here with date, what
 changed, why, and an explicit statement of whether results were already observed before the change.
 
+**2026-08-25 (fourth entry)** — Added `plausible_alternatives` to A1
+(`retry_policy_shared.card_retry_cadence_days`) and made baseline cadence a swept sensitivity
+dimension. **This change was made after adaptive-policy results had been observed, and it made our
+own headline number worse — deliberately.** Measurement showed the committed `[1]` cadence is the
+*weakest* plausible baseline (63.5%), not the strongest (74.6% at `[3,7,14]`): repeated next-day
+retries hammer an empty account, while spread retries catch income events. The brief required
+biasing the baseline toward the harder comparison case, and `[1]` did the opposite. The headline is
+now reported against the strongest baseline, dropping the recovery-rate lift from ~+36% to **+11.8%**.
+Detail in `docs/build_log.md` entry 13.
+
+Two harness bugs were also fixed, both surfaced by the sweep returning byte-identical results for
+scenarios that should have differed: (a) all mandates were created at midnight so the NPCI congestion
+window never triggered for anyone, making that failure class inert; (b) mandate revocation could only
+ever be a starting condition, so A16's threshold was never read and customers could never give up
+mid-sequence. Both fixes **increased** measured lift, which is the direction that warrants scrutiny —
+see the build-log entry for why each mechanism is independently justified rather than convenient.
+
 **2026-08-25 (third entry)** — Added an `escalation` block (A35: response rate and response lag).
 Without it, escalation decisions recovered nothing in-model, so "compliant escalation" measured as
 worthless and the compliance decomposition returned +0.0% across the board — an artefact of the model
