@@ -224,3 +224,64 @@ comment explaining that asserting `0.0` would encode a regulation that doesn't e
 **What it demonstrates.** Checking the primary source instead of the summary of the summary — and
 finding that the honest version of a claim can be more useful than the overstated one. This is the
 single most consequential correction in the project so far.
+
+---
+
+## 9. The first number was too good, and the reason was a modelling bug
+
+**What happened.** The first baseline run reported **89.0%** recovery on recoverable mandates, with
+**zero** wasted attempts and every single recovery landing in exactly 1.0 days (IQR 1.0–1.0).
+
+**Why it mattered.** An 89% baseline is both implausible and strategically bad — if the naive policy
+already recovers nine in ten, there is almost no headroom for an adaptive policy to demonstrate
+anything, and any lift we did report would look manufactured. A suspiciously good number for your own
+*baseline* is worth more scrutiny than a bad one, because it's the direction that doesn't flatter you
+and therefore doesn't trip your own defences.
+
+**Root cause.** The harness assigned each mandate a failure class *independently* of the simulated
+balance trajectory. So a mandate could be labelled an `insufficient_funds` failure on a day when its
+balance comfortably covered the amount — an incoherent world state. Those mandates then "recovered"
+trivially on the next-day retry, because nothing had ever actually been wrong.
+
+**How we got out.** Failure days are now anchored to a day on which the assigned failure class is
+genuinely true: insufficient-funds failures occur on a day the balance is actually short, expiry
+failures occur at or after expiry, and so on. Baseline recovery fell to **58.6%** across 30 seeds,
+wasted attempts became non-zero, and the simulation became internally consistent.
+
+Worth stating plainly: this is a *correctness* fix, not tuning. No adaptive policy existed at the
+time — there was no result to tune toward, and the change made our own baseline look **worse**, not
+better.
+
+**What it demonstrates.** Interrogating a result that favours you. The bug was only findable by
+asking "why is this number good?" rather than banking it.
+
+---
+
+## 10. A compliance check that logged violations and let them through
+
+**What happened.** The same first run reported **183 compliance violations** — and completed every
+one of those retries anyway. The invariant module was recording verdicts that nothing acted on.
+
+**Why it mattered.** The whole pitch is auditable, compliant recovery. A compliance floor that gets
+written to a log and then ignored is theatre: it produces the *appearance* of governance with none of
+the effect. A judge reading the audit trail would find our own system documenting its own violations.
+
+**Diagnosis.** The violations were real and correctly detected: 128 of 500 mandates exceeded the
+₹15,000 no-OTP ceiling (RBI A6), because the SIP and EMI amount bands run to ₹25,000 and ₹50,000.
+Above that ceiling a recurring debit legally requires additional factor authentication, so it cannot
+be silently auto-retried — it needs customer re-authentication, which is an *escalation*, not a retry.
+
+**How we got out.** Compliance became a **veto**: the harness refuses to execute a non-compliant
+retry regardless of what the policy asked for. The proposal is still recorded, now as
+`blocked_by_compliance` with the failing invariant attached, so a policy that repeatedly proposes
+illegal actions is visible in the audit trail rather than quietly corrected behind the scenes.
+
+**The strategic consequence.** Across 30 seeds, the baseline proposes a non-compliant auto-retry on
+**25.2%** of mandates — and loses all of that value, because a blocked retry recovers nothing. That
+is not a bug in the baseline; it is precisely what "rigid, context-blind retry" *means*, and it is a
+measurable, compliance-grounded opening for the adaptive policy to exploit by escalating to
+re-authentication instead of blindly retrying. The rubric's "compliant escalation" clause stopped
+being a box to tick and became a source of measurable recovery.
+
+**What it demonstrates.** Enforcement over documentation, and noticing that a component which
+*reports* correctly can still be *wired* wrongly.
