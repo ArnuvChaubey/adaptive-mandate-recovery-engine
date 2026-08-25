@@ -185,6 +185,33 @@ integration/   real Razorpay test-mode API
 
 Detail: [docs/architecture.md](docs/architecture.md).
 
+### Two places the LLM does real work — neither of them a decision
+
+**It attacks our results.** `eval/redteam.py` hands Claude the assumption table and the frozen config
+and asks it to find parameterisations where the adaptive policy *loses*. It proposes; the harness
+disposes. Every scenario is mechanically validated against the ranges already declared in
+`sim_params.yaml` before it can run, and the verdict comes from the metrics, not the model — so a
+hallucinated attack costs a wasted scenario, never a false result.
+
+Across 16 generated attacks: **0 landed**, weakest **+5.7%** — below the +10.0% floor of all our
+hand-written scenarios. The model found harder attacks than we did. It also caught a real methodology
+error in *our own* scenarios: we required it to stay inside declared ranges while
+`mostly_irregular_income` quietly did not. That scenario is now labelled out-of-range, and the honest
+in-range version was added.
+
+```bash
+python -m eval.redteam --count 10
+```
+
+**It makes the audit trail interrogable.** `audit/query.py` turns an English question into a
+structured `QuerySpec` that deterministic code executes over the records. The model never sees the
+data and is never asked for a number, so it cannot invent one.
+
+```bash
+python -m audit.query "what did we escalate above the OTP ceiling?"
+python -m audit.query "which decisions did compliance block?"
+```
+
 ### Where the LLM is, and is not
 
 The LLM makes **no decisions**. Every retry, stop, and escalation comes from deterministic rules with
