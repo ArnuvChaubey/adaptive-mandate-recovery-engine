@@ -12,7 +12,7 @@
 meta:
   frozen: true
   frozen_at: "2026-08-25T00:00:00Z"
-  frozen_commit_hash: "23aede5563c5ab5a483b6695cd06910c75895780"
+  frozen_commit_hash: "8e2d9a49d5e3cbea10f461e67059dc9e79f94638"
 
 retry_policy_shared:
   max_attempts:
