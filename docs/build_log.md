@@ -285,3 +285,72 @@ being a box to tick and became a source of measurable recovery.
 
 **What it demonstrates.** Enforcement over documentation, and noticing that a component which
 *reports* correctly can still be *wired* wrongly.
+
+---
+
+## 11. The adaptive policy lost on one of its own headline metrics
+
+**What happened.** First three-way run. The adaptive policy beat baseline on recovery
+(58.6% → 79.9% on recoverable mandates) and on money (₹10.3M → ₹21.4M). It also **wasted three times
+more attempts proportionally** — 0.8% → 2.3%, a **+202%** regression on a metric the project's own
+brief names as a goal ("reduce wasted retries").
+
+**Why it mattered.** The temptation was obvious: quietly drop wasted attempts from the headline, or
+tune the policy until the number went green. Both would have been the exact failure this project
+exists to avoid — the metric was defined and frozen (ε = 0.01) on Day 4, *before* any adaptive policy
+existed, specifically so it couldn't be redefined once it became inconvenient.
+
+**Diagnosis.** A per-failure-class breakdown put all the extra waste in one place:
+
+| failure class | baseline | adaptive |
+|---|---|---|
+| `insufficient_funds` | 1.1% wasted | **3.4% wasted** |
+| everything else | 0.0% | 0.0% |
+
+The cause is the population-level salary bet itself. The adaptive policy waits for the next likely
+income event (1st / 7th / month-end) instead of retrying next day. For customers who follow that
+pattern, it wins. For the substantial minority who don't — irregular and informal earners, weighted
+at 20–40% of the population in the frozen config — it waits ~30 days and then attempts against a
+genuinely empty account. Baseline's next-day retry also fails for those customers, but against a
+*marginally* funded account, which scores above the waste threshold.
+
+So the adaptive policy converts near-miss failures into confident misses. **That is not a bug; it is
+the measurable cost of A13** — the assumption, flagged HIGH risk on day one, that population-level
+salary clustering says nothing about whether *this* customer follows it.
+
+**How we got out.** We reported it. The trade-off is real and it is the interesting result: the
+policy buys a large recovery gain by concentrating attempts on moments it believes are good, and pays
+for it in attempts spent on the customers it is wrong about. Whether that trade is worth making is a
+business question — it depends on what an attempt costs — and the harness's job is to surface the
+trade honestly, not to collapse it into a single flattering number.
+
+**What it demonstrates.** A metric defined before the result, and honoured after it. An evaluation
+harness that only ever flatters its own reference policy is not a harness, and the most credible
+number in a bake-off is usually the one that went the wrong way.
+
+---
+
+## 12. The policy could have read the answer sheet
+
+**What happened.** While investigating entry 11, a look at what the policy actually receives at
+decision time turned up a structural leak: `PolicyState` carried the full `Mandate` object — and
+`Mandate` carries `income_timing_type`, the customer's *actual* salary-cycle pattern.
+
+**Why it mattered.** That field is simulator ground truth about an individual. A13 states plainly
+that no public source can tell you whether a given customer is paid on the 7th; the entire
+non-circularity argument rests on the policy making a *population-level* bet and being wrong for the
+people who don't fit it. A policy that read `income_timing_type` would be scheduling retries against
+the answer sheet, and every lift number in the project would be worthless.
+
+The adaptive policy did **not** read it. But "we checked and it doesn't" is not a guarantee a
+reviewer can verify without reading every line of every policy, forever, including ones added later.
+
+**How we got out.** Made it structurally impossible rather than merely true. Policies now receive
+`MandateView` — a redacted projection carrying id, amount, amount type, creation date and validity,
+and nothing else. `income_timing_type` is not a field on the type, so no policy can read it, by
+accident or otherwise. A test asserts the field's absence on the view and its presence on the full
+simulator-side object.
+
+**What it demonstrates.** The difference between a guarantee that holds and a guarantee you can
+*prove* holds. Non-circularity claims are worth exactly as much as their enforcement mechanism —
+"we were careful" is not an enforcement mechanism.
