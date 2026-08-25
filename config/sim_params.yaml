@@ -142,6 +142,24 @@ compliance_floors:
     assumption_id: A6
     source: "RBI E-Mandate Framework 2026 — reverify immediately before submission, this figure has a revision history"
 
+escalation:
+  # Added 2026-08-25 (A35). When a policy stops and escalates (asks the customer to re-authenticate,
+  # re-mandate, or pay manually), some fraction of customers act on it. No public source exists for
+  # this rate, so it is swept.
+  #
+  # Anti-inflation note: this rate is applied IDENTICALLY to every policy that escalates, so it
+  # cannot manufacture lift on its own. The only asymmetry it creates is that a policy which fires a
+  # legally-refusable auto-retry instead of escalating gets nothing -- which is the real cost of
+  # compliance-blindness, not an artefact of this parameter.
+  response_rate:
+    range: [0.10, 0.40]
+    status: ASSUMPTION
+    assumption_id: A35
+  response_lag_days:
+    range: [1, 7]
+    status: ASSUMPTION
+    assumption_id: A35
+
 metrics:
   wasted_attempt_epsilon:
     value: 0.01

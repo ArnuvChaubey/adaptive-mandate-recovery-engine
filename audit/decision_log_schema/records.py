@@ -37,6 +37,10 @@ class EscalationAction(str, Enum):
     REQUEST_REMANDATE = "request_remandate"          # expired mandate: authorization must be renewed
     NOTIFY_CUSTOMER_MANUAL_PAYMENT = "notify_customer_manual_payment"
     NO_ACTION_POSSIBLE = "no_action_possible"        # revoked: customer withdrew consent
+    # Above the no-OTP ceiling (A6) a recurring debit legally requires additional factor
+    # authentication, so it cannot be auto-retried at all -- the compliant move is to ask the
+    # customer to re-authenticate rather than to fire an attempt that must be refused.
+    REQUEST_ADDITIONAL_AUTHENTICATION = "request_additional_authentication"
 
 
 class Source(str, Enum):

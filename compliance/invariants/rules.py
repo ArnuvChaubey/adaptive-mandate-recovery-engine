@@ -83,6 +83,18 @@ def check_otp_ceiling(proposed: ProposedDecision, config: dict) -> ComplianceChe
         ceiling = cfg["higher_ceiling_inr"]
 
     description = f"Auto-debit without additional factor authentication is capped at INR {ceiling:,}"
+
+    # The ceiling constrains *auto-debit attempts*, not decisions in general. A policy that responds
+    # to an over-ceiling failure by requesting re-authentication has done exactly the compliant
+    # thing; flagging that as a violation would penalise the correct behaviour.
+    if proposed.scheduled_retry_at is None:
+        return ComplianceCheck(
+            invariant_id=INVARIANT_OTP_CEILING,
+            description=description,
+            passed=True,
+            detail="No auto-debit scheduled; ceiling not applicable to an escalation decision",
+        )
+
     passed = proposed.amount_inr <= ceiling
     return ComplianceCheck(
         invariant_id=INVARIANT_OTP_CEILING,

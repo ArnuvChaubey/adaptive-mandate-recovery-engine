@@ -13,7 +13,9 @@ from pathlib import Path
 
 from eval.harness import run_policy_on_batch
 from eval.metrics.definitions import MetricsReport, compute_metrics, recovery_lift
+from policies.adaptive_policy.policy import AdaptivePolicy
 from policies.baseline_policy.policy import BaselinePolicy
+from policies.compliance_aware_baseline.policy import ComplianceAwareBaselinePolicy
 from policies.policy_interface.base import Policy
 from simulator.batch import generate_mandates
 from simulator.config_loader import load_config
@@ -22,7 +24,8 @@ REPORTS_DIR = Path(__file__).parent / "reports"
 
 AVAILABLE_POLICIES: dict[str, type[Policy]] = {
     "baseline": BaselinePolicy,
-    # "adaptive" lands at Milestone 3 (Day 5-6).
+    "compliance_aware_baseline": ComplianceAwareBaselinePolicy,  # ablation, see that module's docstring
+    "adaptive": AdaptivePolicy,
     # "external_engine_stub" is intentionally not registered -- see policies/external_policy_stub/.
 }
 
@@ -132,16 +135,29 @@ def main() -> None:
                 print(f"  decision log written          {out.relative_to(Path.cwd())}")
 
     if len(policy_names) > 1 and "baseline" in reports:
-        base = reports["baseline"]
         print()
         print("-" * 72)
-        print("  RECOVERY LIFT vs baseline")
+        print("  RECOVERY LIFT")
         print("-" * 72)
-        for name, report in reports.items():
-            if name == "baseline":
-                continue
-            print(f"\n  {name}:")
-            for metric, value in recovery_lift(base, report).items():
+
+        # Decomposition, when the ablation was run: separates lift attributable to compliance
+        # awareness from lift attributable to retry timing. See
+        # policies/compliance_aware_baseline/ for why this decomposition is not optional.
+        comparisons: list[tuple[str, str, str]] = []
+        if "compliance_aware_baseline" in reports and "adaptive" in reports:
+            comparisons = [
+                ("baseline", "compliance_aware_baseline", "compliance awareness alone"),
+                ("compliance_aware_baseline", "adaptive", "retry timing alone"),
+                ("baseline", "adaptive", "TOTAL"),
+            ]
+        else:
+            comparisons = [
+                ("baseline", name, "vs baseline") for name in reports if name != "baseline"
+            ]
+
+        for base_name, cand_name, label in comparisons:
+            print(f"\n  {cand_name} vs {base_name}  --  {label}:")
+            for metric, value in recovery_lift(reports[base_name], reports[cand_name]).items():
                 print(f"    {metric:32s} {value:+.1%}")
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)

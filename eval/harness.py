@@ -18,11 +18,12 @@ from audit.decision_log_schema.records import (
     DecisionLog,
     DecisionRecord,
     DecisionType,
+    EscalationAction,
     Source,
 )
 from compliance.invariants.rules import ProposedDecision, evaluate_all
 from eval.metrics.definitions import AttemptOutcome, MandateOutcome
-from policies.policy_interface.base import Policy, PolicyState
+from policies.policy_interface.base import MandateView, Policy, PolicyState
 from simulator.balance_evolution.process import simulate_balance
 from simulator.failure_events.generators import AttemptContext, success_probability
 from simulator.mandate import UNRECOVERABLE_CLASSES, FailureClass, Mandate
@@ -132,7 +133,8 @@ def run_policy_on_batch(
 
         while attempt_number <= max_attempts:
             state = PolicyState(
-                mandate=mandate,
+                # Redacted view: policies never receive income_timing_type. See MandateView.
+                mandate=MandateView.from_mandate(mandate),
                 failure_class=failure_class,
                 attempt_number=attempt_number,
                 failed_at=current_time,
@@ -180,6 +182,25 @@ def run_policy_on_batch(
             )
 
             if blocked or decision.decision_type != DecisionType.RETRY_SCHEDULED:
+                # A26-adjacent honesty point: escalations can recover money (the customer
+                # re-authenticates, re-mandates, or pays manually). The response rate (A35) is
+                # applied identically to every policy, so it cannot manufacture lift by itself --
+                # `NO_ACTION_POSSIBLE` (a revoked mandate) is excluded because there is genuinely
+                # nothing for the customer to act on. A policy that fired a legally-refusable retry
+                # instead of escalating simply has no escalation to respond to.
+                if (
+                    not blocked
+                    and decision.escalation_action is not None
+                    and decision.escalation_action != EscalationAction.NO_ACTION_POSSIBLE
+                ):
+                    esc = config["escalation"]
+                    response_rate = rng.uniform(*esc["response_rate"]["range"])
+                    if rng.uniform() < response_rate:
+                        recovered = True
+                        lag = float(rng.uniform(*esc["response_lag_days"]["range"]))
+                        days_to_recovery = (
+                            (current_time - mandate.created_at).days - first_failure_day + lag
+                        )
                 break
 
             retry_at = decision.scheduled_retry_at

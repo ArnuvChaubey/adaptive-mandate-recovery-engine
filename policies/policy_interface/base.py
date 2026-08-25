@@ -19,17 +19,47 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from audit.decision_log_schema.records import DecisionType, EscalationAction
-from simulator.mandate import FailureClass, Mandate
+from simulator.mandate import AmountType, FailureClass, Mandate
+
+
+@dataclass(frozen=True)
+class MandateView:
+    """The redacted view of a mandate that policies are permitted to see.
+
+    This type exists to make non-circularity *structural* rather than a matter of good intentions.
+    The full `Mandate` carries `income_timing_type` -- the customer's actual salary-cycle pattern --
+    which is exactly the ground truth A13 says no real system could know. Handing policies the full
+    object would mean the adaptive policy *could* read the answer sheet, and a reviewer would have
+    to take our word that it doesn't.
+
+    So it cannot. The field is not on this type, and `from_mandate` is the only way in.
+    """
+    mandate_id: str
+    amount_inr: float
+    amount_type: AmountType
+    created_at: datetime
+    validity_days: int
+
+    @classmethod
+    def from_mandate(cls, mandate: Mandate) -> "MandateView":
+        return cls(
+            mandate_id=mandate.mandate_id,
+            amount_inr=mandate.amount_inr,
+            amount_type=mandate.amount_type,
+            created_at=mandate.created_at,
+            validity_days=mandate.validity_days,
+        )
 
 
 @dataclass(frozen=True)
 class PolicyState:
     """Everything a policy is allowed to know at decision time.
 
-    Deliberately excludes ground-truth success probability and future balance -- a real recovery
-    system knows the failure class, the history, and the clock, and nothing else.
+    Deliberately excludes ground-truth success probability, the simulated balance, and the
+    customer's individual income-timing type -- a real recovery system knows the failure class, the
+    amount, the history, and the clock, and nothing else.
     """
-    mandate: Mandate
+    mandate: MandateView
     failure_class: FailureClass
     attempt_number: int
     failed_at: datetime

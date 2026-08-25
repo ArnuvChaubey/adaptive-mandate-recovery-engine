@@ -41,6 +41,7 @@ Legend: Confidence and Challenge Risk are rated LOW / MEDIUM / HIGH. Simulator I
 | A31 | `bank_technical_decline` per-attempt base rate, range [0.01, 0.05] | No public source — placeholder order-of-magnitude for transient bank-side technical declines in card processing generally | LOW | MEDIUM | MEDIUM |
 | A32 | `mandate_expired` validity/expiry duration, range [180, 1095] days | No public source for typical UPI Autopay/mandate validity period; wide range reflects genuine uncertainty, not confidence | LOW | MEDIUM | MEDIUM |
 | A33 | Mandate amount-type mixture weights across OTT/SIP/EMI bands | No public source for the population split across these product types | LOW | MEDIUM — shapes the ₹-recovered distribution | MEDIUM |
+| A35 | Escalation response rate (customer acts on a re-auth / re-mandate / manual-payment request), range [0.10, 0.40], with a [1, 7] day response lag | No public source. **Applied identically to every policy that escalates**, so it cannot manufacture lift on its own — the only asymmetry it creates is that a policy firing a legally-refusable auto-retry has no escalation to respond to | LOW | HIGH — carries the entire measured value of "compliant escalation" | **HIGH — the most attackable parameter in the project, because it directly drives the ₹-recovered headline. Must always be reported as swept, never as a point estimate** |
 | A34 | An undelivered notification reduces success probability **behaviourally** (an unaware customer is less likely to top up before the debit), multiplier range [0.3, 0.8] | No public source. Replaces the refuted A4. Explicitly **not** a regulatory effect — the framework imposes no block on non-delivery | LOW | MEDIUM — drives `notification_undelivered` | MEDIUM — must never be described as a compliance rule |
 
 ## Pattern worth naming directly
@@ -57,6 +58,16 @@ problem. If it holds across the swept range, that is the actual evidence.
 Per the anti-circularity requirement: `config/sim_params.yaml` must be frozen and committed *before* the adaptive
 policy is evaluated against it. Any change made after seeing evaluation results is logged here with date, what
 changed, why, and an explicit statement of whether results were already observed before the change.
+
+**2026-08-25 (third entry)** — Added an `escalation` block (A35: response rate and response lag).
+Without it, escalation decisions recovered nothing in-model, so "compliant escalation" measured as
+worthless and the compliance decomposition returned +0.0% across the board — an artefact of the model
+having no path for an escalated mandate to ever recover, not a finding. The rate is applied
+identically to every policy that escalates, precisely so it cannot manufacture lift on its own.
+**No adaptive-policy result had yet been accepted or reported when this was added**; the first
+three-way run was executed after this change, not before. Also fixed a genuine bug in
+`check_otp_ceiling`: it flagged *escalation* decisions as ceiling violations, penalising the very
+behaviour the ceiling requires. The ceiling now applies only where an auto-debit is actually scheduled.
 
 **2026-08-25 (second entry)** — Restructured `failure_classes.notification_undelivered` after a
 primary-source check refuted A4. The original brief claimed an undelivered pre-debit notification
