@@ -12,7 +12,7 @@
 meta:
   frozen: true
   frozen_at: "2026-08-25T00:00:00Z"
-  frozen_commit_hash: null  # filled in immediately after this commit, see git log
+  frozen_commit_hash: "894d1d377de02403c2947d29d4a1e69a3e6c8508"
 
 retry_policy_shared:
   max_attempts:
