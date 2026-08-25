@@ -38,6 +38,9 @@ Legend: Confidence and Challenge Risk are rated LOW / MEDIUM / HIGH. Simulator I
 | A28 | Fixed seeds + versioned config are sufficient to demonstrate reproducibility within a live judging session's time budget | Assumption about the format/timing of judging | N/A | N/A | MEDIUM |
 | A29 | The test-mode 3-day token window can be operated via a scripted, repeatable seeding process without manual intervention | Not yet demonstrated — engineering feasibility assumption | N/A | N/A | MEDIUM — becomes concrete at M1/M6 |
 | A30 | ~15-20 live test-mode cases will be read as sufficient proof of end-to-end integration, not mistaken for statistical validation | Assumption about audience interpretation, mitigated only by explicit labeling discipline | N/A | N/A | MEDIUM-HIGH |
+| A31 | `bank_technical_decline` per-attempt base rate, range [0.01, 0.05] | No public source — placeholder order-of-magnitude for transient bank-side technical declines in card processing generally | LOW | MEDIUM | MEDIUM |
+| A32 | `mandate_expired` validity/expiry duration, range [180, 1095] days | No public source for typical UPI Autopay/mandate validity period; wide range reflects genuine uncertainty, not confidence | LOW | MEDIUM | MEDIUM |
+| A33 | Mandate amount-type mixture weights across OTT/SIP/EMI bands | No public source for the population split across these product types | LOW | MEDIUM — shapes the ₹-recovered distribution | MEDIUM |
 
 ## Pattern worth naming directly
 
@@ -54,4 +57,9 @@ Per the anti-circularity requirement: `config/sim_params.yaml` must be frozen an
 policy is evaluated against it. Any change made after seeing evaluation results is logged here with date, what
 changed, why, and an explicit statement of whether results were already observed before the change.
 
-_No entries yet — `sim_params.yaml` is still in draft (v0), not yet frozen. See file header._
+**2026-08-26** — Added numeric values for `bank_technical_decline.base_rate`, `mandate_expired`
+validity duration, and `mandate_amount_distribution` type-mixture weights (A31-A33). These fields existed
+in the frozen v0 schema with a status tag but no value — Day 3 simulator coding needed real numbers to
+run against. **No baseline or adaptive-policy results existed at this point** — freeze commit `894d1d3`
+predates any policy code entirely, so this completes an incomplete draft rather than tuning a result.
+Recommitted as the new frozen baseline; see `config/sim_params.yaml`'s `meta` block for the updated hash.
