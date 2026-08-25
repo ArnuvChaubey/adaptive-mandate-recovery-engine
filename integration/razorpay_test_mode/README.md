@@ -5,7 +5,16 @@ integration proof** — evidence the system calls real APIs end to end — not a
 set. At the scale available (~15-20 live cases), it cannot carry the recovery-rate or lift claim; that claim
 rests entirely on `simulator/` and `eval/`. See A30 and `docs/positioning.md`.
 
-Day 1 (today): SDK client wired to `.env` test-mode credentials, no live calls yet.
+## What actually expires
+
+API keys (`rzp_test_...` plus the secret) are **permanent** — they do not expire and need no
+rotation. What expires is a **card token**, created when a customer authorises a subscription
+mandate: those are valid for 3 days in test mode, which is the real content of A29.
+
+Because the live subset uses one-time Payment Links (see the Day 2 finding below), which tokenise
+nothing, the 3-day window does not currently constrain when M6 can run.
+
+Day 1: SDK client wired to `.env` test-mode credentials, no live calls yet.
 Day 2: webhook receiver behind a public tunnel (ngrok), first real end-to-end webhook received and logged
 into the same `audit/` schema as the simulator, tagged `source: live_test_mode`.
 Milestone 6 (Day 10): full ~15-20 case scripted batch run, timed close to the video-recording date to respect
