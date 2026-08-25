@@ -1,0 +1,105 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Adaptive Mandate Recovery — Batch Report</title><style>
+:root{--bg:#0d1117;--panel:#161b22;--line:#26303d;--ink:#e6edf3;--dim:#8b949e;
+--pos:#3fb950;--neg:#f85149;--warn:#d29922;--accent:#58a6ff;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:48px 24px 80px}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);
+margin:48px 0 16px;font-weight:600}
+.sub{color:var(--dim);margin:0 0 28px}
+.banner{background:rgba(210,153,34,.09);border:1px solid rgba(210,153,34,.35);
+border-left:3px solid var(--warn);border-radius:6px;padding:14px 18px;margin:0 0 32px;
+color:#e3b341;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px 20px}
+.card .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:8px}
+.card .value{font-size:26px;font-weight:600;letter-spacing:-.02em;font-family:var(--mono)}
+.card .note{font-size:12px;color:var(--dim);margin-top:6px}
+.pos{color:var(--pos)}.neg{color:var(--neg)}.warnc{color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--panel);
+border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:11px 14px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);
+font-weight:600;background:rgba(255,255,255,.02)}
+tr:last-child td{border-bottom:none}
+td.num{font-family:var(--mono)}
+.best{color:var(--pos);font-weight:600}
+.scroll{overflow-x:auto}
+.rec{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin-bottom:12px}
+.rec .head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.tag{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:4px;
+background:rgba(88,166,255,.12);color:var(--accent);border:1px solid rgba(88,166,255,.3)}
+.tag.esc{background:rgba(210,153,34,.12);color:var(--warn);border-color:rgba(210,153,34,.3)}
+.tag.live{background:rgba(63,185,80,.12);color:var(--pos);border-color:rgba(63,185,80,.3)}
+.rec .amt{margin-left:auto;font-family:var(--mono);font-weight:600}
+.rec .why{font-size:13px;color:var(--dim);margin-bottom:10px}
+.rec .msg{font-size:13px;border-left:2px solid var(--line);padding-left:12px;color:#c9d1d9}
+.rec .msg b{color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.chk{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px}
+ul.lim{margin:0;padding-left:18px;color:var(--dim);font-size:14px}
+ul.lim li{margin-bottom:9px}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+color:var(--dim);font-size:12px;font-family:var(--mono)}
+</style></head><body>
+<div class="wrap">
+<h1>Adaptive Mandate Recovery Engine</h1>
+<p class="sub">Batch evaluation report · Razorpay AI Buildathon, Track 03</p>
+
+<div class="banner"><b>Simulated batch.</b> Every figure below is computed from a frozen,
+version-controlled simulator config (commit <code>8e2d9a49d5e3</code>) and a fixed seed list. It is not
+measured against real transaction data and is not a revenue forecast. The live test-mode section is
+an integration proof and carries no statistical claim.</div>
+
+<h2>Measured money recovered across the batch</h2>
+<div class="grid"><div class="card"><div class="label">Batch value</div><div class="value">₹52,750,073</div><div class="note">6,000 mandates · 30 seeds</div></div><div class="card"><div class="label">Recovered — baseline</div><div class="value">₹8,940,256</div><div class="note">56.4% of recoverable</div></div><div class="card"><div class="label">Recovered — adaptive</div><div class="value pos">₹20,347,621</div><div class="note">77.8% of recoverable</div></div><div class="card"><div class="label">Additional recovered</div><div class="value pos">₹11,407,365</div><div class="note">+127.6% vs baseline</div></div></div>
+
+<h2>Policy comparison</h2>
+<div class="scroll"><table><tr><th>Metric</th><th>Baseline</th><th>+ Compliance aware</th><th>Adaptive</th><th>Adaptive (hedged)</th></tr><tr><td>Recovery rate (recoverable)</td><td class="num">56.4%</td><td class="num">63.3%</td><td class="num best">77.8%</td><td class="num">74.3%</td></tr><tr><td>Recovery rate (all mandates)</td><td class="num">51.0%</td><td class="num">57.1%</td><td class="num best">70.2%</td><td class="num">66.7%</td></tr><tr><td>Value recovered</td><td class="num">₹8,940,256</td><td class="num">₹18,116,088</td><td class="num best">₹20,347,621</td><td class="num">₹19,668,510</td></tr><tr><td>Wasted attempt rate</td><td class="num">1.2%</td><td class="num best">0.9%</td><td class="num">1.9%</td><td class="num">1.6%</td></tr><tr><td>Median days to recovery</td><td class="num">1.0</td><td class="num">1.0</td><td class="num">3.5</td><td class="num">1.0</td></tr><tr><td>Attempts made</td><td class="num">6,178</td><td class="num">6,173</td><td class="num">4,900</td><td class="num">5,652</td></tr></table></div>
+
+<h2>Where the gain comes from</h2>
+<p class="sub">The adaptive policy escalates amounts above the ₹15,000 no-OTP ceiling instead of
+firing retries that must legally be refused. That is a compliance check, not intelligence — so an
+ablation isolates it. If you believe production systems already do this, the honest claim is the
+timing row, not the total.</p>
+<table><tr><th>Source of gain</th><th>Recovery rate</th><th>Value</th></tr><tr><td>Compliance awareness alone</td><td class="num pos">+12.3%</td><td class="num pos">+102.6%</td></tr><tr><td>Retry timing alone</td><td class="num pos">+23.0%</td><td class="num pos">+12.3%</td></tr><tr style="font-weight:600"><td>Total</td><td class="num pos">+38.1%</td><td class="num pos">+127.6%</td></tr></table>
+
+<h2>Where it loses</h2>
+<p class="sub">The adaptive policy wastes <b>more</b> attempts than baseline. Waiting for a likely
+payday wins for customers who follow the pattern and fires into a drained account for those who do
+not — the measurable cost of assumption A13. The metric and its threshold were frozen before any
+adaptive policy existed, which is why this row is still here. The hedged variant halves the
+regression and cuts median recovery time from 3.5 to
+1.0 days, at the cost of ~9 points of lift —
+because the extra attempt more than doubles customer-initiated revocations. Neither dominates.</p>
+
+<h2>Does it survive the assumptions?</h2>
+<p class="sub">Each scenario pins a low-confidence assumption to a point inside its already-declared range. Recovery lift is positive in <b>18 of 18</b>.</p><div class="scroll"><table><tr><th>Scenario</th><th>Rate lift</th><th>Value lift</th><th>Waste lift</th></tr><tr><td>frozen_defaults</td><td class="num pos">+36.1%</td><td class="num pos">+112.2%</td><td class="num neg">+94.0%</td></tr><tr><td>baseline_documented_cadence</td><td class="num pos">+36.1%</td><td class="num pos">+112.2%</td><td class="num neg">+94.0%</td></tr><tr><td>baseline_t1_t2_t3</td><td class="num pos">+29.2%</td><td class="num pos">+95.2%</td><td class="num neg">+42.4%</td></tr><tr><td>baseline_escalating_backoff</td><td class="num pos">+23.7%</td><td class="num pos">+87.6%</td><td class="num neg">+25.8%</td></tr><tr><td>baseline_strongest_spread</td><td class="num pos">+11.8%</td><td class="num pos">+81.1%</td><td class="num neg">+42.8%</td></tr><tr><td>baseline_weekly</td><td class="num pos">+10.0%</td><td class="num pos">+73.3%</td><td class="num neg">+23.5%</td></tr><tr><td>escalation_pessimistic</td><td class="num pos">+31.5%</td><td class="num pos">+63.9%</td><td class="num neg">+79.6%</td></tr><tr><td>escalation_optimistic</td><td class="num pos">+43.4%</td><td class="num pos">+153.6%</td><td class="num pos">-23.9%</td></tr><tr><td>mostly_irregular_income</td><td class="num pos">+38.6%</td><td class="num pos">+112.2%</td><td class="num neg">+300.5%</td></tr><tr><td>mostly_salaried</td><td class="num pos">+33.0%</td><td class="num pos">+98.7%</td><td class="num pos">-41.9%</td></tr><tr><td>severe_congestion</td><td class="num pos">+44.3%</td><td class="num pos">+114.8%</td><td class="num neg">+147.7%</td></tr><tr><td>mild_congestion</td><td class="num pos">+36.7%</td><td class="num pos">+108.5%</td><td class="num neg">+84.2%</td></tr><tr><td>volatile_balances</td><td class="num pos">+57.4%</td><td class="num pos">+140.0%</td><td class="num neg">+96.0%</td></tr><tr><td>stable_balances</td><td class="num pos">+29.9%</td><td class="num pos">+113.3%</td><td class="num neg">+0.0%</td></tr><tr><td>early_revocation</td><td class="num pos">+44.2%</td><td class="num pos">+160.4%</td><td class="num neg">+79.5%</td></tr><tr><td>funds_dominated_mix</td><td class="num pos">+56.4%</td><td class="num pos">+166.9%</td><td class="num neg">+83.7%</td></tr><tr><td>technical_dominated_mix</td><td class="num pos">+16.7%</td><td class="num pos">+76.0%</td><td class="num pos">-41.8%</td></tr><tr><td>high_unrecoverable_mix</td><td class="num pos">+28.1%</td><td class="num pos">+75.4%</td><td class="num neg">+252.3%</td></tr></table></div>
+
+<h2>Audit trail — simulated decisions</h2>
+<p class="sub">Every decision carries the rule that produced it and every compliance check evaluated.
+Narration is generated after the fact and never influences a decision.</p>
+<div class="rec"><div class="head"><span class="tag">retry_scheduled</span><span class="tag">ADAPT-004</span><span class="tag">insufficient_funds</span><span class="amt">₹10,525</span></div><div class="why">Insufficient funds: wait until after the next population-level income event (2026-01-28) plus a 1-day settlement buffer, rather than retrying into the same empty account</div><div class="msg"><b>Customer message</b><br>We couldn&#x27;t collect your subscription payment this time. We&#x27;ll try again on 29 Jan 2026. To avoid any interruption, please make sure your account has sufficient balance.</div><div class="chk">6a-NOTIFICATION-TIMING PASS · OTP-CEILING PASS · narration: template</div></div><div class="rec"><div class="head"><span class="tag esc">stopped_unrecoverable</span><span class="tag">SIM-REVOKED</span><span class="tag">mandate_revoked</span><span class="amt">₹7,370</span></div><div class="why">Customer revoked the mandate after 3 consecutive failed debits; no further recovery is possible</div><div class="msg"><b>Customer message</b><br><i>none — contact not appropriate</i></div><div class="chk"> · narration: template</div></div><div class="rec"><div class="head"><span class="tag esc">escalated</span><span class="tag">ADAPT-002</span><span class="tag">bank_technical_decline</span><span class="amt">₹36,515</span></div><div class="why">Amount INR 36,514.71 exceeds the INR 15,000 no-OTP ceiling; additional factor authentication is required, so request re-authentication instead of an auto-retry that must be refused</div><div class="msg"><b>Customer message</b><br>This payment is above the limit for automatic processing, so it needs your approval. Please authorise the payment to keep your subscription active.</div><div class="chk">6a-NOTIFICATION-TIMING PASS (n/a) · OTP-CEILING PASS (n/a) · narration: template</div></div><div class="rec"><div class="head"><span class="tag">retry_scheduled</span><span class="tag">ADAPT-005</span><span class="tag">npci_congestion</span><span class="amt">₹8,578</span></div><div class="why">NPCI congestion: reschedule into a documented lower-traffic window (14:00) rather than repeating the peak-hour attempt</div><div class="msg"><b>Customer message</b><br>We couldn&#x27;t collect your subscription payment this time. We&#x27;ll try again on 07 Jan 2026. To avoid any interruption, please make sure your account has sufficient balance.</div><div class="chk">6a-NOTIFICATION-TIMING PASS · OTP-CEILING PASS · narration: template</div></div>
+
+<h2>Audit trail — real Razorpay test-mode API</h2>
+<p class="sub">Same policy engine, same compliance invariants, same audit schema — driven by entities
+created and re-fetched through Razorpay's live test-mode API, with documented decline codes mapped
+onto the failure taxonomy. Integration proof only; excluded from every figure above.</p>
+<div class="rec"><div class="head"><span class="tag live">live_test_mode</span><span class="tag esc">escalated</span><span class="tag">ADAPT-002</span><span class="amt">₹41,000</span></div><div class="why">Amount INR 41,000.00 exceeds the INR 15,000 no-OTP ceiling; additional factor authentication is required, so request re-authentication instead of an auto-retry that must be refused</div><div class="chk">razorpay id plink_TU3Iptz0elUXYm · decline code payment_timed_out</div></div><div class="rec"><div class="head"><span class="tag live">live_test_mode</span><span class="tag">retry_scheduled</span><span class="tag">ADAPT-004</span><span class="amt">₹199</span></div><div class="why">Insufficient funds: wait until after the next population-level income event (2026-08-28) plus a 1-day settlement buffer, rather than retrying into the same empty account</div><div class="chk">razorpay id plink_TU3HipOrRHaHcg · decline code insufficient_fund</div></div><div class="rec"><div class="head"><span class="tag live">live_test_mode</span><span class="tag">retry_scheduled</span><span class="tag">ADAPT-007</span><span class="amt">₹499</span></div><div class="why">Bank technical decline is transient: retry as soon as the 24h notification floor permits, without spending additional calendar time</div><div class="chk">razorpay id plink_TU3Hl0TGwP1MTU · decline code payment_timed_out</div></div>
+
+<h2>Honest limits</h2>
+<ul class="lim">
+<li>Not measured against real transaction data — this demonstrates a measurement methodology, not a revenue outcome.</li>
+<li>Not benchmarked against Razorpay's Intelligent Retry Engine; it exposes no public callable interface.</li>
+<li>The live batch is 9 real entities. A scripted completed-payment batch is not possible on a standard test account.</li>
+<li>The escalation response rate (A35) carries the ₹ headline and has no public source. It is applied identically to every policy so it cannot manufacture lift, and it is swept — but attack it first.</li>
+<li>Real production retry cadence is unpublished (A1). The baseline is an informed construction, and the headline is reported against the <i>strongest</i> baseline we could build.</li>
+</ul>
+
+<footer>Generated 2026-08-25 16:54 UTC · frozen config 8e2d9a49d5e3 · seeds 30 × 200 mandates<br>
+Regenerate: <code>python -m eval.report</code></footer>
+</div></body></html>

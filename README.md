@@ -115,6 +115,17 @@ No number in this README, the pitch video, or the demo came from anywhere but th
 `config/sim_params.yaml` records the commit hash it was frozen at, and `simulator/config_loader.py`
 **refuses to run** against a config that is not frozen and hashed.
 
+A self-contained HTML batch report — the money, the comparison, the sensitivity verdict, and real
+audit records from both the simulator and the live API:
+
+```bash
+python -m eval.report        # writes eval/reports/report.html
+```
+
+A committed snapshot lives at
+[`eval/reports/examples/report_example.html`](eval/reports/examples/report_example.html) so it can be
+read without running anything.
+
 Optional, needs credentials in `.env` (see `.env.example`):
 
 ```bash
