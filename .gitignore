@@ -25,3 +25,6 @@ integration/razorpay_test_mode/webhook_smoke_test_log.jsonl
 eval/reports/report.html
 # generated live loop audit -- snapshot in examples/
 eval/reports/live_webhook_decisions.jsonl
+
+# personal interview prep, not submission material
+docs/interview_prep.md
