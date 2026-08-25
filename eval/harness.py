@@ -31,18 +31,10 @@ from simulator.mandate import UNRECOVERABLE_CLASSES, FailureClass, Mandate
 
 HORIZON_DAYS = 90
 
-# Which failure class a given mandate hits. Not sourced -- there is no public distribution of failure
-# classes across Indian recurring payments (that would be exactly the proprietary data this project
-# is built to work without). Insufficient funds dominates, consistent with the one aggregate signal
-# we do have: ~20M monthly UPI Autopay revocations attributed to low balance (A9).
-FAILURE_CLASS_WEIGHTS = {
-    FailureClass.INSUFFICIENT_FUNDS: 0.55,
-    FailureClass.NPCI_CONGESTION: 0.15,
-    FailureClass.NOTIFICATION_UNDELIVERED: 0.10,
-    FailureClass.BANK_TECHNICAL_DECLINE: 0.10,
-    FailureClass.MANDATE_EXPIRED: 0.05,
-    FailureClass.MANDATE_REVOKED: 0.05,
-}
+# The failure-class distribution now lives in the frozen config (A36), not here. It was hardcoded in
+# this module until 2026-08-25, which meant the single most impactful ground-truth parameter in the
+# project sat outside the freeze protocol the entire credibility claim rests on, carried no
+# assumption ID, and could not be swept. See docs/build_log.md entry 18.
 
 
 @dataclass
@@ -53,9 +45,10 @@ class RunResult:
     decision_log: DecisionLog
 
 
-def _assign_failure_class(rng: np.random.Generator) -> FailureClass:
-    classes = list(FAILURE_CLASS_WEIGHTS.keys())
-    weights = np.array(list(FAILURE_CLASS_WEIGHTS.values()))
+def _assign_failure_class(config: dict, rng: np.random.Generator) -> FailureClass:
+    mix = config["failure_class_mix"]["weights"]
+    classes = [FailureClass(name) for name in mix]
+    weights = np.array(list(mix.values()), dtype=float)
     return classes[rng.choice(len(classes), p=weights / weights.sum())]
 
 
@@ -130,7 +123,7 @@ def run_policy_on_batch(
     ]["range"]
 
     for mandate in mandates:
-        failure_class = _assign_failure_class(rng)
+        failure_class = _assign_failure_class(config, rng)
         trajectory = simulate_balance(
             mandate_amount_inr=mandate.amount_inr,
             timing_type=mandate.income_timing_type,

@@ -50,6 +50,26 @@ retry_policy_shared:
     assumption_id: A3
     source: "Razorpay Payment Retries docs (Emandate section)"
 
+failure_class_mix:
+  # Moved here from eval/harness.py on 2026-08-25 (A36). This is ground truth -- how often each
+  # failure type occurs -- and it was hardcoded outside the frozen config, which meant the single
+  # most impactful parameter in the project sat outside the freeze protocol and could not be swept.
+  # See docs/build_log.md entry 18.
+  #
+  # No public source exists for the failure-class distribution of Indian recurring payments; that is
+  # exactly the proprietary data this project is built to work without. Insufficient funds dominates,
+  # consistent with the one aggregate signal we do have (A9: ~20M monthly UPI Autopay revocations
+  # attributed to low balance).
+  status: ASSUMPTION
+  assumption_id: A36
+  weights:
+    insufficient_funds: 0.55
+    npci_congestion: 0.15
+    notification_undelivered: 0.10
+    bank_technical_decline: 0.10
+    mandate_expired: 0.05
+    mandate_revoked: 0.05
+
 failure_classes:
   insufficient_funds:
     per_attempt_failure_probability:

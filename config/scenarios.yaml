@@ -97,3 +97,39 @@ scenarios:
     probes: "A16 -- customers revoke after only 2 consecutive failures, punishing slow policies"
     overrides:
       failure_classes.mandate_revoked.revocation_trigger_consecutive_failures.range: [2, 2]
+
+  # ---- A36: the failure-class mix. Sweepable only since it was moved into the frozen config;
+  # it was previously hardcoded in the harness and therefore untestable. Highest-impact single
+  # parameter in the simulator.
+  - name: funds_dominated_mix
+    probes: "A36 -- almost everything is an insufficient-funds failure, maximising the salary bet's leverage"
+    overrides:
+      failure_class_mix.weights:
+        insufficient_funds: 0.80
+        npci_congestion: 0.05
+        notification_undelivered: 0.05
+        bank_technical_decline: 0.05
+        mandate_expired: 0.025
+        mandate_revoked: 0.025
+
+  - name: technical_dominated_mix
+    probes: "A36 -- mostly transient technical declines, where timing intelligence should matter least"
+    overrides:
+      failure_class_mix.weights:
+        insufficient_funds: 0.20
+        npci_congestion: 0.20
+        notification_undelivered: 0.15
+        bank_technical_decline: 0.35
+        mandate_expired: 0.05
+        mandate_revoked: 0.05
+
+  - name: high_unrecoverable_mix
+    probes: "A36 -- a third of failures are expired or revoked mandates that no policy can recover"
+    overrides:
+      failure_class_mix.weights:
+        insufficient_funds: 0.35
+        npci_congestion: 0.12
+        notification_undelivered: 0.10
+        bank_technical_decline: 0.10
+        mandate_expired: 0.16
+        mandate_revoked: 0.17
