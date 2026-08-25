@@ -131,7 +131,15 @@ Optional, needs credentials in `.env` (see `.env.example`):
 ```bash
 python -m integration.razorpay_test_mode.live_batch --count 12   # real Razorpay test-mode API
 python -m narrator.narrate --limit 6                             # decision narration
+
+# the closed loop: real webhook -> signature check -> policy -> compliance -> audit -> narration
+uvicorn integration.razorpay_test_mode.webhook_receiver:app --port 8010
 ```
+
+The receiver is the loop, not a logger. A verified Razorpay event goes through the same policy
+engine, the same compliance invariants, and the same audit schema as the simulator — the policy
+cannot tell the difference. `GET /state` shows decisions, recovered value, and compliance violations
+live. A forged signature is rejected with a 400 before anything is parsed.
 
 ---
 

@@ -23,3 +23,5 @@ integration/razorpay_test_mode/webhook_smoke_test_log.jsonl
 
 # generated report -- a committed snapshot lives in eval/reports/examples/
 eval/reports/report.html
+# generated live loop audit -- snapshot in examples/
+eval/reports/live_webhook_decisions.jsonl
