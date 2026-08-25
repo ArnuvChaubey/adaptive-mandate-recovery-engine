@@ -471,3 +471,61 @@ could. Every guard encodes an assumption about *how* the thing you're guarding w
 assumed the model would say too much, and it said too little. That the fallback then produced a
 correct, complete narration is the layered design working exactly as intended: the LLM failed, and
 the system did not.
+
+---
+
+## 16. The fix for the wasted-attempt problem made recovery worse, for a reason we could measure
+
+**What happened.** The adaptive policy beat baseline everywhere except wasted attempts, where it was
+worse in 13 of 15 scenarios (entry 11). The obvious fix: stop committing the entire 4-attempt budget
+to one bet. Probe early and cheaply on attempt 1, keep the income-event wait for attempts 2+.
+
+Predicted outcome: keep most of the recovery gain, cut the waste. What actually happened, across 30
+seeds:
+
+| | adaptive | adaptive_hedged |
+|---|---|---|
+| recovery rate (recoverable) | **77.8%** | 74.3% |
+| value recovered | **₹20.3M** | ₹19.7M |
+| wasted attempt rate | 1.9% | **1.6%** |
+| median days to recovery | 3.5 | **1.0** |
+
+Recovery went **down**. The prediction was wrong.
+
+**Why — and this is the useful part.** Counting mid-sequence revocations across both policies:
+
+| | mid-sequence revocations |
+|---|---|
+| adaptive | 99 (3.3% of mandates) |
+| adaptive_hedged | **214 (7.1% of mandates)** |
+
+The extra probe spends a unit of customer patience. A16 says customers revoke after 2–4 consecutive
+failed debits; an early attempt that fails pushes threshold-2 customers into revoking **before the
+income-event bet ever gets played**. The hedge more than doubles permanent, customer-initiated
+losses in exchange for lower waste. That mechanism was invisible until the model actually had it —
+it only exists because entry 14 wired up revocation, which had previously been dead.
+
+**Across the full sweep**, the trade is consistent:
+
+| | median rate lift | median value lift | median waste lift | conservative rate lift |
+|---|---|---|---|---|
+| adaptive | **+36.1%** | **+112.2%** | +79.5% | **+11.8%** |
+| adaptive_hedged | +27.2% | +106.2% | **+40.4%** | +7.7% |
+
+Hedging roughly halves the waste regression and cuts median time-to-recovery from 3.5 days to 1.0,
+at a cost of about nine points of recovery lift. Both stay positive on rate and value in 15/15
+scenarios. **Neither policy dominates.**
+
+**How we got out.** We didn't pick a winner. Both policies ship, both are reported, and the
+trade-off is the finding: *maximise recovery, or recover faster and waste less — these are different
+policies and the harness prices the difference.*
+
+That is also the sharpest version of this project's pitch. Razorpay's Intelligent Retry Engine
+invites merchants to "configure their own retry strategies" and "define retry cadence"; it publishes
+nothing about what any given configuration costs. Here the cost is measured, decomposed, and
+attributable to a named mechanism.
+
+**What it demonstrates.** A prediction that was wrong, caught by measurement rather than argument,
+with the mechanism identified instead of hand-waved. The change is logged in `assumptions.md` as
+policy iteration after seeing results — the simulator config was untouched, because the freeze
+protects ground truth, not the thing being engineered against it.

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from eval.harness import run_policy_on_batch
 from eval.metrics.definitions import MetricsReport, compute_metrics, recovery_lift
+from policies.adaptive_hedged_policy.policy import AdaptiveHedgedPolicy
 from policies.adaptive_policy.policy import AdaptivePolicy
 from policies.baseline_policy.policy import BaselinePolicy
 from policies.compliance_aware_baseline.policy import ComplianceAwareBaselinePolicy
@@ -26,6 +27,7 @@ AVAILABLE_POLICIES: dict[str, type[Policy]] = {
     "baseline": BaselinePolicy,
     "compliance_aware_baseline": ComplianceAwareBaselinePolicy,  # ablation, see that module's docstring
     "adaptive": AdaptivePolicy,
+    "adaptive_hedged": AdaptiveHedgedPolicy,  # iteration on adaptive, see that module's docstring
     # "external_engine_stub" is intentionally not registered -- see policies/external_policy_stub/.
 }
 

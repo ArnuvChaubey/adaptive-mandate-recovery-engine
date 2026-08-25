@@ -59,6 +59,14 @@ Per the anti-circularity requirement: `config/sim_params.yaml` must be frozen an
 policy is evaluated against it. Any change made after seeing evaluation results is logged here with date, what
 changed, why, and an explicit statement of whether results were already observed before the change.
 
+**2026-08-25 (fifth entry) — POLICY ITERATION, not a config change.** Added
+`policies/adaptive_hedged_policy/` after observing that `adaptive` lost badly on wasted attempts.
+`config/sim_params.yaml` was **not modified** — the freeze protects simulator ground truth, and
+iterating a policy against fixed ground truth is the intended use of the harness. Logged here anyway
+because the change was made *after* seeing results and a reader is entitled to know that. The
+original `adaptive` policy is retained unchanged and both are reported side by side; neither
+dominates (see `docs/build_log.md` entry 16).
+
 **2026-08-25 (fourth entry)** — Added `plausible_alternatives` to A1
 (`retry_policy_shared.card_retry_cadence_days`) and made baseline cadence a swept sensitivity
 dimension. **This change was made after adaptive-policy results had been observed, and it made our

@@ -98,7 +98,11 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, default=10, help="Number of seeds per scenario")
     parser.add_argument("--n-mandates", type=int, default=200)
     parser.add_argument(
-        "--policies", default="baseline,compliance_aware_baseline,adaptive"
+        "--policies", default="baseline,compliance_aware_baseline,adaptive,adaptive_hedged"
+    )
+    parser.add_argument(
+        "--candidate", default="adaptive",
+        help="Policy whose lift over baseline is summarised in the verdict",
     )
     args = parser.parse_args()
 
@@ -138,9 +142,9 @@ def main() -> None:
         )
         results.append(result)
 
-        lift = result.lift("baseline", "adaptive")
+        lift = result.lift("baseline", args.candidate)
         base_rate = result.reports["baseline"].recovery_rate_recoverable_only
-        adapt_rate = result.reports["adaptive"].recovery_rate_recoverable_only
+        adapt_rate = result.reports[args.candidate].recovery_rate_recoverable_only
         print(
             f"  {result.name:32s} {base_rate:6.1%} {adapt_rate:6.1%} "
             f"{lift['recovery_rate_recoverable_only']:+9.1%} "
@@ -149,28 +153,41 @@ def main() -> None:
         )
 
     # ---- Verdict ----------------------------------------------------------------------------
-    rate_lifts = [r.lift("baseline", "adaptive")["recovery_rate_recoverable_only"] for r in results]
-    value_lifts = [r.lift("baseline", "adaptive")["recovered_value_inr"] for r in results]
-    waste_lifts = [r.lift("baseline", "adaptive")["wasted_attempt_rate"] for r in results]
+    rate_lifts = [r.lift("baseline", args.candidate)["recovery_rate_recoverable_only"] for r in results]
+    value_lifts = [r.lift("baseline", args.candidate)["recovered_value_inr"] for r in results]
+    waste_lifts = [r.lift("baseline", args.candidate)["wasted_attempt_rate"] for r in results]
 
     positive_rate = sum(1 for x in rate_lifts if x > 0)
     positive_value = sum(1 for x in value_lifts if x > 0)
     improved_waste = sum(1 for x in waste_lifts if x < 0)  # negative == fewer wasted attempts
 
+    def finite(values: list[float]) -> list[float]:
+        """Relative lift is undefined where the baseline scored zero (0 -> n is an infinite
+        increase). Those scenarios are excluded from range/median and counted separately rather
+        than rendered as '+inf%', which is accurate but tells a reader nothing."""
+        return [x for x in values if np.isfinite(x)]
+
+    rate_lifts_f, value_lifts_f, waste_lifts_f = (
+        finite(rate_lifts), finite(value_lifts), finite(waste_lifts)
+    )
+    undefined = len(waste_lifts) - len(waste_lifts_f)
+
     print()
     print("=" * 94)
     print("  VERDICT")
     print("=" * 94)
+    print(f"  candidate policy                 {args.candidate}")
     print(f"  recovery-rate lift positive in   {positive_rate}/{len(results)} scenarios   "
-          f"range {min(rate_lifts):+.1%} to {max(rate_lifts):+.1%}   median {np.median(rate_lifts):+.1%}")
+          f"range {min(rate_lifts_f):+.1%} to {max(rate_lifts_f):+.1%}   median {np.median(rate_lifts_f):+.1%}")
     print(f"  value lift positive in           {positive_value}/{len(results)} scenarios   "
-          f"range {min(value_lifts):+.1%} to {max(value_lifts):+.1%}   median {np.median(value_lifts):+.1%}")
+          f"range {min(value_lifts_f):+.1%} to {max(value_lifts_f):+.1%}   median {np.median(value_lifts_f):+.1%}")
     print(f"  wasted attempts IMPROVED in      {improved_waste}/{len(results)} scenarios   "
-          f"range {min(waste_lifts):+.1%} to {max(waste_lifts):+.1%}   median {np.median(waste_lifts):+.1%}")
+          f"range {min(waste_lifts_f):+.1%} to {max(waste_lifts_f):+.1%}   median {np.median(waste_lifts_f):+.1%}"
+          + (f"   ({undefined} undefined: baseline had zero waste)" if undefined else ""))
 
     strongest = next((r for r in results if r.name == "baseline_strongest_spread"), None)
     if strongest is not None:
-        lift = strongest.lift("baseline", "adaptive")
+        lift = strongest.lift("baseline", args.candidate)
         print()
         print("  CONSERVATIVE HEADLINE -- against the strongest baseline we could construct:")
         print(f"    recovery-rate lift  {lift['recovery_rate_recoverable_only']:+.1%}")
@@ -197,7 +214,7 @@ def main() -> None:
                 "name": r.name,
                 "probes": r.probes,
                 "reports": {k: vars(v) for k, v in r.reports.items()},
-                "lift_adaptive_vs_baseline": r.lift("baseline", "adaptive"),
+                "lift_candidate_vs_baseline": r.lift("baseline", args.candidate),
             }
             for r in results
         ],
