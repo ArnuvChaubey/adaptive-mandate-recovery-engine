@@ -180,6 +180,56 @@ def _sensitivity() -> str:
     )
 
 
+def _redteam() -> str:
+    path = REPORTS_DIR / "examples" / "redteam_summary_example.json"
+    live = REPORTS_DIR / "redteam_summary.json"
+    source = live if live.exists() else path
+    if not source.exists():
+        return '<p class="sub">Run <code>python -m eval.redteam</code> to populate this section.</p>'
+
+    data = json.loads(source.read_text())
+    attacks = data.get("attacks", [])
+    if not attacks:
+        return ""
+    landed = [a for a in attacks if a.get("attack_landed")]
+    weakest = min(attacks, key=lambda a: a["rate_lift"])
+
+    rows = ""
+    for a in sorted(attacks, key=lambda x: x["rate_lift"]):
+        cls = "neg" if a.get("attack_landed") else "pos"
+        verdict = "ATTACK LANDED" if a.get("attack_landed") else "held"
+        rows += (
+            f'<tr><td>{html.escape(a["name"])}</td>'
+            f'<td class="num {cls}">{_signed(a["rate_lift"])}</td>'
+            f'<td class="num {cls}">{_signed(a["value_lift"])}</td>'
+            f'<td class="num {cls}">{verdict}</td></tr>'
+        )
+
+    return (
+        f'<p class="sub">Claude was given the assumption table and the frozen config and asked to '
+        f'find parameterisations where the policy <b>loses</b>. It proposes; the harness disposes — '
+        f'every scenario is validated against the declared ranges before it can run, and the verdict '
+        f'comes from the metrics, not the model.</p>'
+        f'<div class="grid">'
+        f'<div class="card"><div class="label">Attacks generated</div>'
+        f'<div class="value">{len(attacks)}</div><div class="note">by {html.escape(data.get("model", "claude"))}</div></div>'
+        f'<div class="card"><div class="label">Attacks that landed</div>'
+        f'<div class="value{" neg" if landed else " pos"}">{len(landed)}</div>'
+        f'<div class="note">policy lost on a headline metric</div></div>'
+        f'<div class="card"><div class="label">Weakest result found</div>'
+        f'<div class="value warnc">{_signed(weakest["rate_lift"])}</div>'
+        f'<div class="note">below our hand-written floor of +10.0%</div></div>'
+        f'<div class="card"><div class="label">Rejected before running</div>'
+        f'<div class="value">{len(data.get("rejected", []))}</div>'
+        f'<div class="note">failed schema or range validation</div></div>'
+        f'</div>'
+        f'<div class="scroll"><table><tr><th>Attack</th><th>Rate lift</th><th>Value lift</th>'
+        f'<th>Verdict</th></tr>{rows}</table></div>'
+        f'<div class="rec" style="margin-top:14px"><div class="why"><b>The hardest attack it found:</b> '
+        f'{html.escape(weakest["plausibility"])}</div></div>'
+    )
+
+
 def _audit_samples(log, config, limit: int = 4) -> str:
     by_type: dict = {}
     for rec in log:
@@ -315,6 +365,9 @@ because the extra attempt more than doubles customer-initiated revocations. Neit
 
 <h2>Does it survive the assumptions?</h2>
 {_sensitivity()}
+
+<h2>We asked Claude to break this</h2>
+{_redteam()}
 
 <h2>Audit trail — simulated decisions</h2>
 <p class="sub">Every decision carries the rule that produced it and every compliance check evaluated.

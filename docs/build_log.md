@@ -580,3 +580,114 @@ from `OBSERVED_ERROR_REASONS` (seen in real traffic, not reproducible), and a te
 explicit that the count is 9 rather than 20 because of a platform limit — not quietly reporting 9 as
 though it were the plan. The live batch was never going to carry a statistical claim, so losing
 eleven cases to a rate limit costs nothing except the appearance of a rounder number.
+
+---
+
+## 18. The most impactful parameter in the simulator was hiding outside the frozen config
+
+**What happened.** Reviewing the project for weak points before writing it up, a check for
+ground-truth values living outside `config/sim_params.yaml` found one: `FAILURE_CLASS_WEIGHTS` — 55%
+insufficient funds, 15% congestion, and so on — hardcoded in `eval/harness.py` since day 4.
+
+**Why it mattered.** That is the distribution determining what the policy is even optimising for. It
+was the single most impactful parameter in the simulator, it carried no assumption ID, it could not
+be swept, and it sat **outside the freeze protocol on which the project's entire credibility claim
+rests.** Every sentence written about frozen ground truth was, strictly, false about the most
+important number in it. A reviewer would have found this in minutes and been right to discount
+everything around it.
+
+**How we got out.** Moved to the frozen config as **A36**, values unchanged so no result moved, with
+a CHANGELOG entry. Then, because it was finally sweepable, three failure-mix scenarios were added —
+funds-dominated, technical-dominated, high-unrecoverable — taking the sweep from 15 to 18. All still
+positive. `technical_dominated_mix` turned out to be a *third* scenario where adaptive actually
+improves wasted attempts (−41.8%), because transient declines suit its quick-retry rule rather than
+the long salary wait.
+
+**What it demonstrates.** That a discipline is only as good as its coverage, and that the gap will be
+in the thing you wrote earliest and stopped looking at. Nothing about the freeze protocol was wrong —
+it just had a hole in it, in the highest-leverage place, for six days.
+
+---
+
+## 19. We pointed the model at our own results and told it to break them
+
+**What happened.** Every other use of an LLM in a payment-recovery system points the same way: the
+model advocates an action, a human hopes it was right. We pointed it the other way. `eval/redteam.py`
+hands Claude the assumption table and the frozen config and asks it to find parameterisations where
+the adaptive policy **loses**.
+
+The safety argument is the same one used everywhere else in this project. Nothing the model says is
+trusted: every proposed scenario is mechanically validated against the schema and the ranges already
+declared in `sim_params.yaml`, surviving scenarios execute through the same sweep machinery as the
+hand-written ones, and the verdict comes from the metrics. The model can hallucinate and the worst
+case is a wasted scenario, never a false result.
+
+**Result across 16 generated attacks: none landed.** But the interesting number is the weakest lift —
+**+5.7%**, against a floor of +10.0% across all 18 scenarios we had written ourselves. *The model
+found harder attacks than we did.* The three hardest were all **interaction effects**, which is
+precisely the blind spot it identified in us:
+
+> "The sweep tested mild_congestion and stable_balances separately; the interaction is where the lift
+> should vanish."
+
+That is what a good reviewer says, and we had not thought of it.
+
+**And it caught a real methodology error in our own work.** One proposal came with this note:
+
+> "their `mostly_irregular_income` scenario pushed the irregular weight to 0.70, which is OUTSIDE the
+> declared [0.2, 0.4] range — so the honest in-range version of that attack has never been combined
+> with the strongest baseline."
+
+Correct. We had imposed "stay inside declared ranges" on the model while one of our own scenarios
+broke that rule. It breaks it in the direction that is *harder* on us, so it was never self-serving —
+but it was inconsistent, and it meant the honest in-range version of that attack was untested. The
+scenario is now labelled `mostly_irregular_income_out_of_range` and kept as an extreme stress test,
+with the in-range version added beside it (+12.2% against the strongest baseline). The sweep is now
+19 scenarios.
+
+**Two bugs found in the process.** The first live run truncated at `max_tokens`, so the closing code
+fence never arrived and a paired-fence regex returned unparseable text — the same failure family as
+entry 15, and a reminder that a guard written for *wrong* output still has to cope with output that
+stops early. The second: two proposals were rejected for indexing into a list
+(`types[0].weight_range`), which the override mechanism doesn't support. The fix was to include the
+existing scenarios in the prompt as worked examples, after which 10 of 10 proposals validated.
+
+**What it demonstrates.** A use of a language model that strengthens the rigour of a result instead of
+substituting for it — and a red team that earned its keep on the first run, not by confirming the
+result, but by finding a harder attack than we had and an inconsistency in our own method.
+
+---
+
+## 20. The double-charge bug we hadn't written yet
+
+**What happened.** While writing up the project's production gaps, one had to be listed as *not
+implemented*: idempotency. Razorpay retries webhooks that don't return 2xx, and networks duplicate
+deliveries independently of that. The live loop had no deduplication, so the same `payment.failed`
+arriving twice would increment the attempt counter twice and produce two decisions.
+
+**Why it mattered.** In this repo that's a cosmetic double-entry in a log. In any deployment where a
+decision actually fires a debit, it is a **double charge against a customer for a single failure** —
+and it would arrive through the most ordinary path in the system, a webhook retry, not through
+anything exotic.
+
+**How we got out.** Deduplication keyed on the *event*, not the delivery: `(event type, payment id)`.
+The key deliberately excludes timestamps and delivery identifiers, both of which vary between retries
+of the same event — include them and every redelivery looks new, so the deduplication silently does
+nothing while appearing to work. There's a test pinning exactly that.
+
+A replay returns the **original decision** rather than nothing. Silently dropping it would leave the
+caller with no answer for an event it legitimately asked about; returning the first decision is both
+idempotent and honest — the same question gets the same answer.
+
+Verified over real HTTP: three deliveries of one event → **1 decision recorded, 2 deduplicated**, with
+the replays returning an identical rule ID and retry timestamp.
+
+**What it's still not.** In-memory and per-process. In production this belongs in a durable store
+keyed on the same identity, with the decision log as the source of truth. The module says so in its
+own docstring rather than implying a persistence guarantee it doesn't have — an idempotency store
+that quietly loses state on restart provides weaker guarantees than its callers assume, and the place
+to be clear about that is in the code, not in a postmortem.
+
+**What it demonstrates.** Auditing your own work for what you'd have to admit under questioning, and
+then removing the admission. The gap was found by writing an honest list of weaknesses, which is a
+reasonable argument for writing one.

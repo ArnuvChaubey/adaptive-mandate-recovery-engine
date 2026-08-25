@@ -117,8 +117,19 @@ mistake one for the other.
 - `harness.py` — runs a batch through a policy. Owns the compliance veto and the escalation-response
   model.
 - `run_eval.py` — the single reproducibility entrypoint.
-- `sensitivity.py` — 15 scenarios pinning declared assumption ranges to specific points; reports the
+- `sensitivity.py` — 19 scenarios pinning declared assumption ranges to specific points; reports the
   distribution and the conservative headline, never the maximum.
+- `redteam.py` — hands Claude the assumption table and the frozen config and asks it to find
+  parameterisations where the policy loses. Proposals are validated against the schema and the
+  declared ranges before they can run; the verdict comes from the metrics. A hallucinated attack
+  costs a wasted scenario, never a false result.
+- `report.py` — self-contained HTML batch report, including the metric the policy loses on.
+
+### `audit/query.py`
+Natural-language interrogation of the decision log. The model translates a question into a
+restricted, validated `QuerySpec`; deterministic code executes it. The model never sees the records
+and is never asked for a number. Unknown query fields are *rejected* rather than ignored, because a
+silently-dropped filter answers a wider question than the one asked.
 
 ### `narrator/`
 Reads the audit log after the fact. Deterministic templates are the primary path; the LLM rewrites

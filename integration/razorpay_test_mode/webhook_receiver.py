@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 
 from audit.decision_log_schema.records import DecisionLog
+from integration.razorpay_test_mode.idempotency import IdempotencyStore, event_key
 from integration.razorpay_test_mode.live_pipeline import process_event
 from narrator.llm_explainer.explainer import narrate
 from policies.adaptive_policy.policy import AdaptivePolicy
@@ -42,6 +43,11 @@ _log = DecisionLog()
 # stopping rule can actually fire. In-memory by design: this is a demonstration loop, and persisting
 # it would imply a durability guarantee the process does not have.
 _attempts: dict[str, int] = defaultdict(int)
+
+# Razorpay retries webhooks and networks duplicate them. Without this, a replayed payment.failed
+# increments the attempt counter twice and produces a second decision -- which in a deployment where
+# decisions fire real debits is a double-charge bug.
+_idempotency = IdempotencyStore()
 
 _recovered_inr = 0.0
 
@@ -68,6 +74,16 @@ async def receive_webhook(request: Request):
     payload = json.loads(raw_body)
     event = payload.get("event", "unknown")
 
+    # Idempotency gate, before any state is mutated. A replayed event returns the original answer
+    # rather than nothing -- the same question deserves the same answer, and silently dropping it
+    # would leave the caller with no result for an event it legitimately asked about.
+    dedupe_key = event_key(payload)
+    if dedupe_key and _idempotency.already_processed(dedupe_key):
+        prior = _idempotency.prior_result(dedupe_key)
+        print(f"[webhook] {event}: REPLAY of {dedupe_key} -- returning original decision, "
+              f"no new attempt counted")
+        return {**prior, "replayed": True}
+
     entity = (payload.get("payload", {}).get("payment", {}) or {}).get("entity", {})
     key = entity.get("order_id") or entity.get("id") or "unknown"
     _attempts[key] += 1
@@ -78,12 +94,18 @@ async def receive_webhook(request: Request):
         _recovered_inr += result.recovered_amount_inr
         print(f"[webhook] {event}: RECOVERED INR {result.recovered_amount_inr:,.2f} "
               f"(running total INR {_recovered_inr:,.2f})")
-        return {"status": "ok", "outcome": "recovered",
-                "amount_inr": result.recovered_amount_inr}
+        response = {"status": "ok", "outcome": "recovered",
+                    "amount_inr": result.recovered_amount_inr}
+        if dedupe_key:
+            _idempotency.record(dedupe_key, response)
+        return response
 
     if result.record is None:
         print(f"[webhook] {event}: no decision -- {result.ignored_reason}")
-        return {"status": "ok", "outcome": "ignored", "reason": result.ignored_reason}
+        response = {"status": "ok", "outcome": "ignored", "reason": result.ignored_reason}
+        if dedupe_key:
+            _idempotency.record(dedupe_key, response)
+        return response
 
     record = result.record
     _log.append(record)
@@ -94,7 +116,7 @@ async def receive_webhook(request: Request):
           f"(INR {record.amount_inr:,.2f}, attempt {record.attempt_number})")
     print(f"           {narration.internal_explanation}")
 
-    return {
+    response = {
         "status": "ok",
         "outcome": record.decision_type.value,
         "rule_id": record.rule_id,
@@ -108,6 +130,9 @@ async def receive_webhook(request: Request):
         "narration_source": narration.source,
         "influenced_decision": narration.influenced_decision,
     }
+    if dedupe_key:
+        _idempotency.record(dedupe_key, response)
+    return response
 
 
 @app.get("/health")
@@ -121,6 +146,7 @@ async def state():
     return {
         "as_of": datetime.now(timezone.utc).isoformat(),
         "decisions_recorded": len(_log),
+        "events_deduplicated": _idempotency.replays_detected,
         "recovered_inr": _recovered_inr,
         "compliance_violations": len(_log.compliance_failures()),
         "decisions": [
