@@ -41,15 +41,26 @@ failure_classes:
       note: "Derived from balance_evolution process below, not a looked-up number"
 
   notification_undelivered:
+    # Corrected 2026-08-25 after primary-source check (see assumptions.md CHANGELOG).
+    # Clause 6(a) obligates the issuer to SEND a pre-transaction notification at least 24h before
+    # the debit. It does NOT require delivery confirmation, and contains NO clause blocking a debit
+    # when the notification fails to reach the customer. The hard constraint is therefore on
+    # NOTIFICATION-TO-DEBIT TIMING, not on delivery status.
+    min_hours_between_notification_and_debit:
+      value: 24
+      status: FACT
+      assumption_id: A5
+      source: "RBI Digital Payments E-mandate Framework 2026, Clause 6(a): 'An issuer shall send a
+               pre-transaction notification to the customer, at least 24 hours prior to the actual
+               charge / debit.'"
     delivery_failure_rate:
       range: [0.02, 0.10]   # placeholder range, generic messaging-industry benchmark, not India/Razorpay-specific
       status: ASSUMPTION
       assumption_id: A17
-    post_failure_min_retry_hours:
-      value: 24
-      status: FACT
-      assumption_id: A5
-      source: "RBI e-mandate framework — 24h minimum pre-debit notice"
+    undelivered_success_multiplier:
+      range: [0.3, 0.8]     # BEHAVIOURAL, not regulatory: an unaware customer is less likely to
+      status: ASSUMPTION    # top up before the debit. No regulatory block applies.
+      assumption_id: A34
 
   npci_congestion:
     bad_window_local_time: ["10:00", "13:00"]

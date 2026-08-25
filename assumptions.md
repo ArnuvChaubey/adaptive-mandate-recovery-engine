@@ -11,8 +11,8 @@ Legend: Confidence and Challenge Risk are rated LOW / MEDIUM / HIGH. Simulator I
 | A1 | Card/UPI retry spacing beyond "retries the following day" follows a conservatively-biased, retry-friendly assumed schedule | Live-fetched Razorpay docs confirm only "following day" for cards; no public multi-attempt cadence found | LOW | HIGH — entire baseline policy timing | **HIGHEST** |
 | A2 | Razorpay's actual production retry logic is at least as unsophisticated as our documented baseline (we're not attacking a strawman) | Contradicted in part by Razorpay's own Intelligent Retry Engine (beta, FTX 2026), which already critiques fixed-interval retry | LOW | Low direct, high narrative | HIGH |
 | A3 | Emandate bank-holiday shift logic (T-1, T-3) generalizes to holiday-calendar handling across instruments | Directly documented for Emandate only | MEDIUM | MEDIUM | MEDIUM |
-| A4 | An undelivered pre-debit notification legally auto-blocks the debit | Original research brief; **not yet independently re-verified against RBI primary-circular text** | MEDIUM | HIGH (drives `notification_undelivered` logic) | MEDIUM — recheck vs. primary source pending (Day 1 task) |
-| A5 | The 24-hour minimum pre-debit notice requirement is stable through the project window | Multiple 2026 sources confirm current framework | HIGH | MEDIUM | LOW-MEDIUM (live regulatory area) |
+| A4 | ~~An undelivered pre-debit notification legally auto-blocks the debit~~ **REFUTED 2026-08-25** — the framework imposes a *send* obligation only | RBI Digital Payments E-mandate Framework 2026, Clause 6(a): *"An issuer shall send a pre-transaction notification to the customer, at least 24 hours prior to the actual charge / debit."* No delivery-confirmation requirement and no auto-block clause exists. Confirmed against two independent analyses of the framework text | **REFUTED** | Was HIGH — now replaced by A5 (timing invariant) and A34 (behavioural effect) | Resolved — the claim is no longer made anywhere in the project |
+| A5 | The compliance invariant is a **timing** constraint: no debit attempt may be scheduled less than 24h after the pre-transaction notification was *sent* | RBI E-mandate Framework 2026, Clause 6(a), quoted above — primary-source-backed with a clause number | HIGH | HIGH — this is the hard invariant `compliance/invariants/` enforces | LOW — directly quotable |
 | A6 | ₹15,000 no-OTP ceiling (₹1L for insurance/mutual funds/credit-card-bill categories) is accurate at submission time | RBI E-Mandate Framework 2026 reporting; this figure has a revision history | HIGH | LOW | MEDIUM — re-verify immediately pre-submission |
 | A7 | NPCI 2026 Traffic Management congestion windows (10am-1pm worst) are stable through the project window | Single-sourced (Republic World, May 2026) | MEDIUM | MEDIUM | MEDIUM |
 | A8 | Magnitude of success-probability degradation during the congestion window | No public % exists anywhere | LOW | HIGH for `npci_congestion` realism | HIGH |
@@ -41,6 +41,7 @@ Legend: Confidence and Challenge Risk are rated LOW / MEDIUM / HIGH. Simulator I
 | A31 | `bank_technical_decline` per-attempt base rate, range [0.01, 0.05] | No public source — placeholder order-of-magnitude for transient bank-side technical declines in card processing generally | LOW | MEDIUM | MEDIUM |
 | A32 | `mandate_expired` validity/expiry duration, range [180, 1095] days | No public source for typical UPI Autopay/mandate validity period; wide range reflects genuine uncertainty, not confidence | LOW | MEDIUM | MEDIUM |
 | A33 | Mandate amount-type mixture weights across OTT/SIP/EMI bands | No public source for the population split across these product types | LOW | MEDIUM — shapes the ₹-recovered distribution | MEDIUM |
+| A34 | An undelivered notification reduces success probability **behaviourally** (an unaware customer is less likely to top up before the debit), multiplier range [0.3, 0.8] | No public source. Replaces the refuted A4. Explicitly **not** a regulatory effect — the framework imposes no block on non-delivery | LOW | MEDIUM — drives `notification_undelivered` | MEDIUM — must never be described as a compliance rule |
 
 ## Pattern worth naming directly
 
@@ -56,6 +57,17 @@ problem. If it holds across the swept range, that is the actual evidence.
 Per the anti-circularity requirement: `config/sim_params.yaml` must be frozen and committed *before* the adaptive
 policy is evaluated against it. Any change made after seeing evaluation results is logged here with date, what
 changed, why, and an explicit statement of whether results were already observed before the change.
+
+**2026-08-25 (second entry)** — Restructured `failure_classes.notification_undelivered` after a
+primary-source check refuted A4. The original brief claimed an undelivered pre-debit notification
+legally auto-blocks the debit; the RBI E-mandate Framework 2026 Clause 6(a) actually imposes only a
+*send* obligation ("An issuer shall send a pre-transaction notification to the customer, at least 24
+hours prior to the actual charge / debit"), with no delivery-confirmation requirement and no
+auto-block clause. Replaced `post_failure_min_retry_hours` with
+`min_hours_between_notification_and_debit` (the real, quotable compliance invariant), and added
+`undelivered_success_multiplier` as an explicitly *behavioural* effect (A34), not a regulatory one.
+**No baseline or adaptive-policy results existed at this point** — no policy code has been written
+yet. This is a correctness fix to ground truth, not a tuning change.
 
 **2026-08-25** — Added numeric values for `bank_technical_decline.base_rate`, `mandate_expired`
 validity duration, and `mandate_amount_distribution` type-mixture weights (A31-A33). These fields existed

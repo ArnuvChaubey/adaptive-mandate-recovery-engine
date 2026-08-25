@@ -56,15 +56,23 @@ def insufficient_funds_success_probability(
 def notification_undelivered_success_probability(
     ctx: AttemptContext, config: dict, rng: np.random.Generator
 ) -> float:
-    """A4/A5: RBI requires a pre-debit notice at least 24h before an automated debit. If the notice
-    wasn't delivered, the debit is blocked -- a hard compliance floor, not a timing preference.
+    """A34 (behavioural), NOT a regulatory block -- see the refuted A4 in assumptions.md.
 
-    Note this is the *simulator* enforcing what the world does. The matching constraint on the
-    policy side lives in compliance/invariants/ so a policy cannot silently bypass it.
+    RBI's E-mandate Framework 2026 Clause 6(a) obligates the issuer to *send* a pre-transaction
+    notification at least 24h before the debit. It does not require delivery confirmation and does
+    not block a debit whose notification failed to arrive. So non-delivery does not zero out the
+    success probability -- it degrades it, because an unaware customer is less likely to have topped
+    up in time.
+
+    The genuine regulatory constraint (A5) is on notification-to-debit *timing*, and it belongs on
+    the policy side, enforced in compliance/invariants/ where a policy cannot bypass it silently.
     """
-    if not ctx.notification_delivered:
-        return 0.0
-    return 1.0
+    if ctx.notification_delivered:
+        return 1.0
+    multiplier = sample_from_range(
+        rng, config["failure_classes"]["notification_undelivered"]["undelivered_success_multiplier"]["range"]
+    )
+    return float(np.clip(multiplier, 0.0, 1.0))
 
 
 def npci_congestion_success_probability(

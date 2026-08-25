@@ -57,10 +57,19 @@ def test_insufficient_funds_near_zero_when_balance_short(config, rng):
     assert 0.0 <= p <= 0.1
 
 
-def test_notification_undelivered_hard_blocks_debit(config, rng):
-    """A4/A5: RBI compliance floor -- an undelivered pre-debit notice blocks the debit outright."""
+def test_undelivered_notification_degrades_but_does_not_block(config, rng):
+    """A34, replacing the refuted A4.
+
+    RBI Clause 6(a) is a *send* obligation with no auto-block on non-delivery, so an undelivered
+    notification must NOT zero out success -- it degrades it behaviourally. A test asserting 0.0
+    here would be encoding a regulation that does not exist.
+    """
+    lo, hi = config["failure_classes"]["notification_undelivered"]["undelivered_success_multiplier"]["range"]
     ctx = make_ctx(notification_delivered=False)
-    assert success_probability(FailureClass.NOTIFICATION_UNDELIVERED, ctx, config, rng) == 0.0
+    for _ in range(200):
+        p = success_probability(FailureClass.NOTIFICATION_UNDELIVERED, ctx, config, rng)
+        assert p > 0.0, "non-delivery must not act as a regulatory block"
+        assert lo - 1e-9 <= p <= hi + 1e-9
 
 
 def test_notification_delivered_allows_debit(config, rng):

@@ -166,3 +166,61 @@ The alternative — silently editing a frozen file — is the thing the whole di
 **What it demonstrates.** The freeze protocol working as a real constraint that costs something,
 rather than as decoration. It's also enforced in code: `load_config()` raises if `meta.frozen` isn't
 true or the hash is missing, with tests proving the check actually fires.
+
+---
+
+## 7. A CHANGELOG dated in the future
+
+**What happened.** Routine schedule check compared `git log` against the `assumptions.md` CHANGELOG.
+The commits were dated 2026-08-25; the CHANGELOG entries I'd written said 2026-08-26.
+
+**Why it mattered.** Small, but in the one file whose entire purpose is auditable provenance. A
+skeptical reviewer cross-referencing commit timestamps against the change record would find dates
+that disagree — in the document that exists specifically to prove no parameter was changed after
+seeing results.
+
+**How we got out.** Corrected and committed with the reasoning in the commit message.
+
+**What it demonstrates.** Auditability isn't a document you write once; it's a property you keep
+checking. The check that caught this was routine, not triggered by suspicion.
+
+---
+
+## 8. The regulation didn't say what we'd been told it said
+
+**What happened.** A load-bearing claim inherited from the research brief: *"RBI requires a
+pre-debit notification; if undelivered, the debit is auto-blocked."* It had been carried as
+assumption **A4** at MEDIUM confidence, verified only against press summaries, and it was driving
+the design of both the `notification_undelivered` failure class and the compliance invariant.
+
+Checked against the framework text before writing the policy interface. RBI's Digital Payments
+E-mandate Framework 2026, **Clause 6(a)**, reads:
+
+> "An issuer shall send a pre-transaction notification to the customer, at least 24 hours prior to
+> the actual charge / debit."
+
+That is a **send** obligation. There is no delivery-confirmation requirement anywhere in the
+framework, and **no clause blocking a debit whose notification failed to arrive.** Confirmed against
+two independent legal analyses of the framework text.
+
+**Why it mattered.** We were one day from hard-coding a compliance invariant that enforced a rule the
+regulator never wrote. "Our system blocks the debit because RBI requires it" invites exactly one
+question from a judge who knows the framework — *which clause?* — and we had no answer.
+
+**How we got out.** Split the refuted claim into the two real things underneath it:
+
+- **A5 (upgraded to a quotable FACT):** the genuine hard constraint is on *timing* — no debit may be
+  scheduled less than 24h after the notification was **sent**. This is now the compliance invariant,
+  primary-sourced with a clause number, and it's a *better* invariant than the one we lost because
+  it directly constrains retry scheduling, which is the thing this project actually measures.
+- **A34 (new, honestly labeled ASSUMPTION):** non-delivery still degrades success, but
+  **behaviourally** — an unaware customer is less likely to top up in time — not as a regulatory
+  block. Modeled as a swept multiplier, never described as a compliance rule.
+
+A4 stays in `assumptions.md` struck through and marked REFUTED rather than deleted, so the correction
+itself is auditable. The test that asserted a hard block was rewritten to assert the opposite, with a
+comment explaining that asserting `0.0` would encode a regulation that doesn't exist.
+
+**What it demonstrates.** Checking the primary source instead of the summary of the summary — and
+finding that the honest version of a claim can be more useful than the overstated one. This is the
+single most consequential correction in the project so far.
