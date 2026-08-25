@@ -111,7 +111,7 @@ def narrate(record: DecisionRecord, client=None) -> Narration:
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=1024,
+            max_tokens=2048,
             system=SYSTEM_PROMPT,
             # A structured-summarisation task with strict grounding rules -- low effort is the right
             # setting. Reasoning depth is not the bottleneck here; obedience to the record is.
@@ -125,8 +125,21 @@ def narrate(record: DecisionRecord, client=None) -> Narration:
     except Exception:
         return narrate_with_template(record)
 
+    # Truncation check. A response cut off at max_tokens can still be perfectly *grounded* -- every
+    # number in it came from the record -- so the validator will happily pass it. It caught a real
+    # case where the internal explanation ended mid-word and the CUSTOMER line was lost entirely,
+    # silently turning an escalation that needed customer contact into one with no message at all.
+    # Guarding against invention is not the same as guarding against omission.
+    if getattr(response, "stop_reason", None) == "max_tokens":
+        return narrate_with_template(record)
+
     internal, customer = _parse(text)
     if not internal:
+        return narrate_with_template(record)
+
+    # Completeness: a decision whose escalation calls for contacting the customer must produce a
+    # customer message. Silence here is a dropped obligation, not a valid narration.
+    if templates.customer_message(record) and not customer:
         return narrate_with_template(record)
 
     result = validate(internal + " " + customer, record)

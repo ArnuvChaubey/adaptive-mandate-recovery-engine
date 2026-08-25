@@ -8,6 +8,8 @@ or without an ANTHROPIC_API_KEY -- without one it uses the deterministic templat
 
 import argparse
 
+from dotenv import load_dotenv
+
 from audit.decision_log_schema.records import DecisionType
 from eval.harness import run_policy_on_batch
 from narrator.llm_explainer.explainer import narrate
@@ -22,6 +24,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--n-mandates", type=int, default=200)
     args = parser.parse_args()
+
+    load_dotenv()  # ANTHROPIC_API_KEY, if configured; absence is a supported path, not an error
 
     config = load_config()
     mandates = generate_mandates(n=args.n_mandates, seed=args.seed, config=config)

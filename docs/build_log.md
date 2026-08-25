@@ -435,3 +435,39 @@ against the strongest baseline** — remains the number we quote, not the median
 **What it demonstrates.** The sweep paying for itself immediately: not by confirming the result, but
 by exposing two mechanisms that were silently doing nothing. A scenario that changes an input and
 produces an identical output is not a passing test — it is a bug report.
+
+---
+
+## 15. The hallucination guard passed a broken narration, because it was watching the wrong failure
+
+**What happened.** First run of the narrator against the real Claude API rather than a stub. Five of
+six records came back clean and passed grounding validation. The sixth ended like this:
+
+> "…Compliance checks INV-RBI-6a-NOTIFICATION-TIMING and INV-RBI-O"
+
+Cut off mid-identifier. And its customer message — an escalation for a ₹26,287 debit above the
+₹15,000 OTP ceiling, which *requires* contacting the customer to re-authenticate — came back empty.
+
+**Why the guard missed it.** The response hit `max_tokens` and was truncated. But a truncated
+response is still perfectly **grounded**: every number in it came from the record, the rule ID was
+cited, no prohibited claims appeared. The validator was built to catch *invention* and had nothing to
+say about *omission*. It passed the record, and the truncation silently converted "tell the customer
+to re-authenticate" into "say nothing to the customer."
+
+In a real deployment that is a dropped regulatory obligation, produced by a validator reporting
+success.
+
+**How we got out.** Two additions:
+
+- **Truncation check** — `stop_reason == "max_tokens"` rejects the response outright and falls back
+  to the template. Root cause, handled at the source.
+- **Completeness check** — if the decision record calls for customer contact, a narration with no
+  customer message is rejected. Silence where an obligation exists is not a valid narration.
+
+Both are regression-tested, including a fake that reproduces the exact truncated string observed.
+
+**What it demonstrates.** The most useful thing the live model did was fail in a way the stub never
+could. Every guard encodes an assumption about *how* the thing you're guarding will go wrong — ours
+assumed the model would say too much, and it said too little. That the fallback then produced a
+correct, complete narration is the layered design working exactly as intended: the LLM failed, and
+the system did not.

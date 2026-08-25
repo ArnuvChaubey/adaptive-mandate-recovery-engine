@@ -166,12 +166,18 @@ def test_ungrounded_llm_output_is_discarded(monkeypatch):
 
     class FakeBlock:
         type = "text"
-        text = "INTERNAL: Rule ADAPT-004 scheduled a retry of INR 88,888.00.\nCUSTOMER: NONE"
+        # Customer line present, so the completeness check passes and the grounding check is the
+        # thing actually under test here.
+        text = (
+            "INTERNAL: Rule ADAPT-004 scheduled a retry of INR 88,888.00.\n"
+            "CUSTOMER: We will retry your payment shortly."
+        )
 
     class FakeMessages:
         def create(self, **kwargs):
             class R:
                 content = [FakeBlock()]
+                stop_reason = "end_turn"
             return R()
 
     class FakeClient:
@@ -181,6 +187,65 @@ def test_ungrounded_llm_output_is_discarded(monkeypatch):
     assert result.source == "template"
     assert result.validation is not None and not result.validation.passed
     assert "88,888.00" not in result.internal_explanation
+
+
+def test_truncated_llm_output_is_rejected():
+    """Regression: a response cut off at max_tokens is still fully *grounded* -- every number in it
+    came from the record -- so the grounding validator passes it. Observed in a real run where the
+    internal text ended mid-word and the CUSTOMER line was lost, silently dropping a required
+    customer message. Guarding against invention is not guarding against omission.
+    """
+    record = make_record()
+
+    class FakeBlock:
+        type = "text"
+        text = "INTERNAL: Rule ADAPT-004 scheduled a retry for INR 1,500.00 and compliance check INV-RBI-O"
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            class R:
+                content = [FakeBlock()]
+                stop_reason = "max_tokens"
+                stop_reason = "max_tokens"
+            return R()
+
+    class FakeClient:
+        messages = FakeMessages()
+
+    result = narrate(record, client=FakeClient())
+    assert result.source == "template"
+    assert result.internal_explanation.endswith(".")
+
+
+def test_missing_customer_message_is_rejected_when_one_is_required():
+    """An escalation that needs customer contact must produce a message; silence is a dropped
+    obligation, not a valid narration."""
+    record = make_record(
+        decision_type=DecisionType.ESCALATED,
+        escalation_action=EscalationAction.REQUEST_ADDITIONAL_AUTHENTICATION,
+        scheduled_retry_at=None,
+        rule_id="ADAPT-002",
+        amount_inr=30_000.0,
+    )
+
+    class FakeBlock:
+        type = "text"
+        text = "INTERNAL: Rule ADAPT-002 escalated this INR 30,000.00 debit.\nCUSTOMER: NONE"
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            class R:
+                content = [FakeBlock()]
+                stop_reason = "end_turn"
+                stop_reason = "end_turn"
+            return R()
+
+    class FakeClient:
+        messages = FakeMessages()
+
+    result = narrate(record, client=FakeClient())
+    assert result.source == "template"
+    assert result.customer_message  # the template supplies the message the LLM dropped
 
 
 def test_grounded_llm_output_is_used(monkeypatch):
@@ -198,6 +263,7 @@ def test_grounded_llm_output_is_used(monkeypatch):
         def create(self, **kwargs):
             class R:
                 content = [FakeBlock()]
+                stop_reason = "end_turn"
             return R()
 
     class FakeClient:
