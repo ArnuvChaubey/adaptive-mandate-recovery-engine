@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-08-25T16:46:44.240651+00:00",
+  "config_frozen_commit_hash": "8e2d9a49d5e3cbea10f461e67059dc9e79f94638",
+  "seeds": [
+    1
+  ],
+  "n_mandates_per_seed": 200,
+  "data_source": "simulation",
+  "reports": {
+    "baseline": {
+      "policy_name": "baseline",
+      "n_mandates": 200,
+      "recovery_rate_recoverable_only": 0.5792349726775956,
+      "recovery_rate_all": 0.53,
+      "total_value_inr": 1805129.23,
+      "recovered_value_inr": 313851.65,
+      "total_attempts": 205,
+      "wasted_attempts": 2,
+      "wasted_attempt_rate": 0.00975609756097561,
+      "median_days_to_recovery": 1.0,
+      "iqr_days_to_recovery": [
+        1.0,
+        1.0
+      ]
+    },
+    "adaptive": {
+      "policy_name": "adaptive",
+      "n_mandates": 200,
+      "recovery_rate_recoverable_only": 0.7752808988764045,
+      "recovery_rate_all": 0.69,
+      "total_value_inr": 1805129.23,
+      "recovered_value_inr": 643957.32,
+      "total_attempts": 147,
+      "wasted_attempts": 0,
+      "wasted_attempt_rate": 0.0,
+      "median_days_to_recovery": 3.466896119983658,
+      "iqr_days_to_recovery": [
+        1.0,
+        9.75
+      ]
+    }
+  }
+}
