@@ -1,0 +1,403 @@
+{
+  "generated_at": "2026-08-25T20:39:49.995596+00:00",
+  "model": "claude-opus-5",
+  "config_frozen_commit_hash": "8e2d9a49d5e3cbea10f461e67059dc9e79f94638",
+  "candidate": "adaptive",
+  "proposed": 10,
+  "rejected": [],
+  "attacks": [
+    {
+      "name": "dense_coverage_beats_precision_when_money_evaporates",
+      "probes": "A14/A15 + A1 interaction. The adaptive policy's entire edge is a single well-timed shot near a predicted income event, but A5 forces it to commit the debit date >=24h in advance via the pre-transaction notification. With fast decay and high spending volatility, credited salary is gone within a day or two, so a pre-committed precise shot lands on an already-drained account while a dense T+1/T+2/T+3 fixed schedule buys three independent coverage draws around the same credit. Precision loses to coverage exactly when the target moves.",
+      "plausibility": "Indian salaried and gig customers routinely see the salary credit consumed within 24-48 hours by rent, EMI auto-debits and UPI spends queued at month-end, so a balance peak is a spike, not a plateau.",
+      "overrides": {
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          1,
+          2,
+          3
+        ],
+        "balance_evolution.decay_rate_range": [
+          0.08,
+          0.08
+        ],
+        "balance_evolution.volatility_range": [
+          0.2,
+          0.2
+        ],
+        "failure_class_mix.weights": {
+          "insufficient_funds": 0.8,
+          "npci_congestion": 0.05,
+          "notification_undelivered": 0.05,
+          "bank_technical_decline": 0.05,
+          "mandate_expired": 0.025,
+          "mandate_revoked": 0.025
+        },
+        "failure_classes.mandate_revoked.revocation_trigger_consecutive_failures.range": [
+          4,
+          4
+        ]
+      },
+      "rate_lift": 0.5240181084057263,
+      "value_lift": 1.4852044843097736,
+      "waste_lift": 0.5275162337662339,
+      "attack_landed": false
+    },
+    {
+      "name": "strongest_baseline_meets_in_range_irregular_income",
+      "probes": "A13 + A1 + A16. Note their mostly_irregular_income scenario pushed the irregular weight to 0.70, which is OUTSIDE the declared [0.2, 0.4] range - so the honest in-range version of that attack has never been combined with the strongest baseline. At irregular=0.40 with [3,7,14] spread retries, the baseline already samples three different phases of the month and captures whatever income events exist; adaptive's predictive edge shrinks to noise while it still pays the latency cost. Patient customers (revoke only at 4) remove the one penalty the baseline pays for spraying attempts.",
+      "plausibility": "Gig, contract, agricultural and small-trader income in India has no reliable monthly cadence, and customers who signed a UPI Autopay mandate for a \u20b9199 OTT plan rarely bother revoking after two failures.",
+      "overrides": {
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          3,
+          7,
+          14
+        ],
+        "income_event_population_mixture.types": [
+          {
+            "name": "clustered_month_end_or_1st",
+            "weight_range": [
+              0.3,
+              0.3
+            ]
+          },
+          {
+            "name": "clustered_near_7th",
+            "weight_range": [
+              0.3,
+              0.3
+            ]
+          },
+          {
+            "name": "irregular_no_clear_cycle",
+            "weight_range": [
+              0.4,
+              0.4
+            ]
+          }
+        ],
+        "failure_classes.mandate_revoked.revocation_trigger_consecutive_failures.range": [
+          4,
+          4
+        ],
+        "failure_classes.npci_congestion.success_probability_degradation.range": [
+          0.1,
+          0.1
+        ]
+      },
+      "rate_lift": 0.08695310040919106,
+      "value_lift": 0.7485275997960499,
+      "waste_lift": 0.7743990137661804,
+      "attack_landed": false
+    },
+    {
+      "name": "transient_technical_world_rewards_immediate_retry",
+      "probes": "A31 + A36 + A8 + A15 together. Technical declines are transient and recover on a fast re-present; adaptive's response to any decline is to defer to a \"better\" future window, but with congestion mild (0.10) there is no better window to find, and with stable balances there is no income event to wait for. Every one of adaptive's levers is flat while the baseline's next-day cadence harvests transient recovery within the outage window. This is the technical-dominated mix combined with the conditions that neutralise adaptive's two compensating advantages - never tested jointly.",
+      "plausibility": "Indian bank-side declines cluster in short issuer/switch outages (RBI-reported downtime windows, end-of-day batch cutovers) that clear in hours, not days.",
+      "overrides": {
+        "failure_class_mix.weights": {
+          "insufficient_funds": 0.2,
+          "npci_congestion": 0.1,
+          "notification_undelivered": 0.1,
+          "bank_technical_decline": 0.45,
+          "mandate_expired": 0.075,
+          "mandate_revoked": 0.075
+        },
+        "failure_classes.bank_technical_decline.base_rate.range": [
+          0.05,
+          0.05
+        ],
+        "failure_classes.npci_congestion.success_probability_degradation.range": [
+          0.1,
+          0.1
+        ],
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          1,
+          2,
+          3
+        ],
+        "balance_evolution.decay_rate_range": [
+          0.02,
+          0.02
+        ],
+        "balance_evolution.volatility_range": [
+          0.05,
+          0.05
+        ]
+      },
+      "rate_lift": 0.13186569808646353,
+      "value_lift": 0.7990643341804781,
+      "waste_lift": 0.0,
+      "attack_landed": false
+    },
+    {
+      "name": "silent_notification_failure_defangs_the_high_conviction_shot",
+      "probes": "A17 + A34 + A5 + A1. Post-A4-refutation there is no delivery confirmation, so no policy can observe that its notification was silently dropped. A policy that concentrates its value into a small number of high-conviction attempts loses a larger share of expected recovery per undelivered notification than a policy with four redundant attempts. At delivery_failure=0.10 and multiplier=0.3, adaptive's \"one perfectly timed debit\" is defanged 10% of the time with no signal, while the spread baseline keeps drawing fresh notification lotteries.",
+      "plausibility": "TRAI DLT scrubbing, header/template mismatches, DND registration and SIM churn make Indian transactional SMS delivery unreliable, and the sender learns nothing when it fails.",
+      "overrides": {
+        "failure_classes.notification_undelivered.delivery_failure_rate.range": [
+          0.1,
+          0.1
+        ],
+        "failure_classes.notification_undelivered.undelivered_success_multiplier.range": [
+          0.3,
+          0.3
+        ],
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          3,
+          7,
+          14
+        ],
+        "failure_class_mix.weights": {
+          "insufficient_funds": 0.8,
+          "npci_congestion": 0.05,
+          "notification_undelivered": 0.05,
+          "bank_technical_decline": 0.05,
+          "mandate_expired": 0.025,
+          "mandate_revoked": 0.025
+        }
+      },
+      "rate_lift": 0.11577654070006775,
+      "value_lift": 0.9443808777601551,
+      "waste_lift": 0.5870407481629927,
+      "attack_landed": false
+    },
+    {
+      "name": "escalation_channel_slow_ignored_and_outlived_by_the_mandate",
+      "probes": "A35 + A32 + A36. The adaptive policy books a large share of its \u20b9-recovered headline through \"compliant escalation\", which A35 admits is the most attackable parameter. Pin escalation to the pessimistic corner of BOTH declared ranges simultaneously (10% response, 7-day lag) and give mandates the shortest declared validity, in a mix where 30% of failures are already unrecoverable. A response that arrives seven days later, from one customer in ten, against a mandate that may have expired in the interim, is worth close to nothing - and the escalation-vs-retry trade collapses.",
+      "plausibility": "Re-mandate and re-auth flows in India require the customer to complete a bank-app UPI Autopay approval or a fresh card AFA journey; response rates on such prompts are low and slow, and short mandate validities are common on promotional/annual OTT and lending products.",
+      "overrides": {
+        "escalation.response_rate.range": [
+          0.1,
+          0.1
+        ],
+        "escalation.response_lag_days.range": [
+          7,
+          7
+        ],
+        "failure_classes.mandate_expired.validity_days_range": [
+          180,
+          180
+        ],
+        "failure_class_mix.weights": {
+          "insufficient_funds": 0.4,
+          "npci_congestion": 0.1,
+          "notification_undelivered": 0.1,
+          "bank_technical_decline": 0.1,
+          "mandate_expired": 0.15,
+          "mandate_revoked": 0.15
+        },
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          3,
+          7,
+          14
+        ]
+      },
+      "rate_lift": 0.07024265644955305,
+      "value_lift": 0.28616498212217073,
+      "waste_lift": 1.0018214936247725,
+      "attack_landed": false
+    },
+    {
+      "name": "large_ticket_shortfalls_no_timing_can_close",
+      "probes": "A22 + A33 + A6 + A15. Push the amount mixture to the EMI/SIP-heavy corner of its declared ranges. Timing intelligence only helps when the shortfall is small enough that an income event closes it; a \u20b930,000 EMI against a drained account fails on every date in the month, so adaptive's timing edge converts to zero on precisely the mandates that dominate the \u20b9-recovered metric. Above the \u20b915,000 OTP-free ceiling both policies are pushed into the same escalation path, which is pinned pessimistic. Recovery-rate lift may survive on cheap OTT; the money headline should not.",
+      "plausibility": "NACH/e-mandate volumes in India are heavily weighted to lending EMIs and SIPs, and the \u20b915,000 no-OTP ceiling means large-ticket recurring debits already require additional factor authentication.",
+      "overrides": {
+        "mandate_amount_distribution.type_mixture_weights.ott_subscription": [
+          0.4,
+          0.4
+        ],
+        "mandate_amount_distribution.type_mixture_weights.sip_investment": [
+          0.3,
+          0.3
+        ],
+        "mandate_amount_distribution.type_mixture_weights.emi": [
+          0.3,
+          0.3
+        ],
+        "failure_class_mix.weights": {
+          "insufficient_funds": 0.75,
+          "npci_congestion": 0.1,
+          "notification_undelivered": 0.05,
+          "bank_technical_decline": 0.05,
+          "mandate_expired": 0.025,
+          "mandate_revoked": 0.025
+        },
+        "escalation.response_rate.range": [
+          0.1,
+          0.1
+        ],
+        "escalation.response_lag_days.range": [
+          7,
+          7
+        ],
+        "balance_evolution.decay_rate_range": [
+          0.08,
+          0.08
+        ]
+      },
+      "rate_lift": 0.7672573314976834,
+      "value_lift": 1.3396172471327104,
+      "waste_lift": 0.5309851403412218,
+      "attack_landed": false
+    },
+    {
+      "name": "short_mandate_life_penalises_patience",
+      "probes": "A32 + A21 + A36 + A13. Adaptive's advantage is bought with calendar time - it defers attempts to better-predicted dates, stretching the stopping window well past the baseline's. Give mandates the minimum declared validity and raise the expired share of the mix: deferred attempts start landing after the mandate is dead, converting recoverable failures into unrecoverable ones. The baseline's compressed T+1/T+2/T+3 window is immune to this by construction. Patience becomes a liability.",
+      "plausibility": "Many Indian UPI Autopay and card mandates are created with short or promotional validity (annual OTT, 6-12 month lending tenors), and a mandate that lapses mid-recovery cannot be presented at all.",
+      "overrides": {
+        "failure_classes.mandate_expired.validity_days_range": [
+          180,
+          180
+        ],
+        "failure_class_mix.weights": {
+          "insufficient_funds": 0.45,
+          "npci_congestion": 0.1,
+          "notification_undelivered": 0.08,
+          "bank_technical_decline": 0.07,
+          "mandate_expired": 0.25,
+          "mandate_revoked": 0.05
+        },
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          1,
+          2,
+          3
+        ],
+        "income_event_population_mixture.types": [
+          {
+            "name": "clustered_month_end_or_1st",
+            "weight_range": [
+              0.4,
+              0.4
+            ]
+          },
+          {
+            "name": "clustered_near_7th",
+            "weight_range": [
+              0.2,
+              0.2
+            ]
+          },
+          {
+            "name": "irregular_no_clear_cycle",
+            "weight_range": [
+              0.4,
+              0.4
+            ]
+          }
+        ]
+      },
+      "rate_lift": 0.29492738757984527,
+      "value_lift": 0.8940049865632539,
+      "waste_lift": 0.4644257703081232,
+      "attack_landed": false
+    },
+    {
+      "name": "patient_customers_make_brute_force_free",
+      "probes": "A16 + A35 + A20 + A8. The sweep only ever tested revocation at 2 (which PENALISES the baseline's attempt-hungry behaviour and therefore flatters adaptive). The untested direction is the tolerant end of the same declared range: at 4, wasted attempts cost the baseline nothing, so adaptive's restraint - its whole wasted-attempt story - buys no recovery. Pair with a fast, responsive escalation channel: the baseline exhausts all four attempts and THEN escalates into the same high-yield channel, capturing most of what adaptive captured by escalating early.",
+      "plausibility": "Customers rarely revoke a small-ticket mandate over a couple of declines - they ignore the SMS - and merchants in India routinely dunning-escalate only after the retry cap is exhausted.",
+      "overrides": {
+        "failure_classes.mandate_revoked.revocation_trigger_consecutive_failures.range": [
+          4,
+          4
+        ],
+        "escalation.response_rate.range": [
+          0.4,
+          0.4
+        ],
+        "escalation.response_lag_days.range": [
+          1,
+          1
+        ],
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          1,
+          3,
+          7
+        ],
+        "failure_classes.bank_technical_decline.base_rate.range": [
+          0.05,
+          0.05
+        ],
+        "failure_classes.npci_congestion.success_probability_degradation.range": [
+          0.1,
+          0.1
+        ]
+      },
+      "rate_lift": 0.22542196098608558,
+      "value_lift": 1.0996012942073783,
+      "waste_lift": 0.3046576836202197,
+      "attack_landed": false
+    },
+    {
+      "name": "both_adaptive_levers_flat_simultaneously",
+      "probes": "A8 + A15 + A16 + A1. Adaptive has exactly two exploitable signals: the NPCI congestion window and the balance/income curve. Pin congestion to the bottom of its declared range (nothing to dodge) AND balances to the stable/low-volatility corner (shortfalls persist, peaks are shallow, so date choice barely moves success probability), against the empirically strongest baseline and tolerant customers. Adaptive is left paying delay and complexity costs for two signals worth ~nothing. The sweep tested mild_congestion and stable_balances separately; the interaction is where the lift should vanish.",
+      "plausibility": "NPCI's execution-window enforcement may simply reshape queueing rather than materially change success odds, and a large segment of customers (pensioners, low-utilisation accounts) hold near-flat balances.",
+      "overrides": {
+        "failure_classes.npci_congestion.success_probability_degradation.range": [
+          0.1,
+          0.1
+        ],
+        "balance_evolution.decay_rate_range": [
+          0.02,
+          0.02
+        ],
+        "balance_evolution.volatility_range": [
+          0.05,
+          0.05
+        ],
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          3,
+          7,
+          14
+        ],
+        "failure_classes.mandate_revoked.revocation_trigger_consecutive_failures.range": [
+          4,
+          4
+        ],
+        "failure_classes.bank_technical_decline.base_rate.range": [
+          0.05,
+          0.05
+        ]
+      },
+      "rate_lift": 0.09442495126705655,
+      "value_lift": 0.7360087802509976,
+      "waste_lift": -1.0,
+      "attack_landed": false
+    },
+    {
+      "name": "notification_lottery_rewards_more_tickets",
+      "probes": "A36 + A17 + A34 + A16. Make awareness failure the second-largest failure class. Each attempt triggers a fresh pre-transaction notification with an independent chance of landing, so recovery here is a lottery in which the number of tickets - not their timing - is the dominant term. A policy that deliberately fires fewer attempts holds fewer tickets; the fixed schedule's four notifications dominate. Pin the behavioural multiplier to its harshest declared value so an unaware customer almost never tops up, and make customers tolerant so the extra tickets are free.",
+      "plausibility": "Awareness, not liquidity, is a real driver of Indian mandate failures - customers who never saw the 24h pre-debit SMS simply do not fund the account, and repeat notifications are how issuers actually break through DLT/DND filtering.",
+      "overrides": {
+        "failure_class_mix.weights": {
+          "insufficient_funds": 0.4,
+          "npci_congestion": 0.1,
+          "notification_undelivered": 0.3,
+          "bank_technical_decline": 0.1,
+          "mandate_expired": 0.05,
+          "mandate_revoked": 0.05
+        },
+        "failure_classes.notification_undelivered.delivery_failure_rate.range": [
+          0.1,
+          0.1
+        ],
+        "failure_classes.notification_undelivered.undelivered_success_multiplier.range": [
+          0.3,
+          0.3
+        ],
+        "retry_policy_shared.card_retry_cadence_days.value": [
+          1,
+          2,
+          3
+        ],
+        "failure_classes.mandate_revoked.revocation_trigger_consecutive_failures.range": [
+          4,
+          4
+        ]
+      },
+      "rate_lift": 0.20429234495730667,
+      "value_lift": 0.8416624116635297,
+      "waste_lift": 0.3748939779474129,
+      "attack_landed": false
+    }
+  ]
+}

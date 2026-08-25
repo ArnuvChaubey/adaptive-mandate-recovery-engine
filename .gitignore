@@ -28,3 +28,6 @@ eval/reports/live_webhook_decisions.jsonl
 
 # personal interview prep, not submission material
 docs/interview_prep.md
+
+# generated red-team output -- snapshot in examples/
+eval/reports/redteam_summary.json

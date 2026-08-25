@@ -54,13 +54,30 @@ scenarios:
       escalation.response_rate.range: [0.40, 0.40]
 
   # ---- A13: directly attacks the adaptive policy's population-level salary bet ----
-  - name: mostly_irregular_income
-    probes: "A13 -- most customers have no salary cycle, so the population-level bet should fail"
+  # OUT-OF-RANGE, DELIBERATELY. The declared weight range for irregular income is [0.2, 0.4]; this
+  # scenario pushes it to 0.70, which is outside the uncertainty we committed to. Flagged 2026-08-26
+  # after the adversarial red team caught the inconsistency: we required the model to stay inside
+  # declared ranges while one of our own scenarios did not.
+  #
+  # It is kept because it errs against us -- a mostly-irregular population is hostile to the salary
+  # bet, so this is a harder test than the declared range allows, not an easier one. But it is an
+  # extreme stress test, not a sensitivity scenario, and the in-range version now exists below.
+  - name: mostly_irregular_income_out_of_range
+    probes: "A13 (EXTREME, outside declared range) -- most customers have no salary cycle at all"
     overrides:
       income_event_population_mixture.types:
         - {name: clustered_month_end_or_1st, weight_range: [0.15, 0.15]}
         - {name: clustered_near_7th, weight_range: [0.15, 0.15]}
         - {name: irregular_no_clear_cycle, weight_range: [0.70, 0.70]}
+
+  - name: mostly_irregular_income_in_range
+    probes: "A13 -- irregular income at the top of its DECLARED range [0.2, 0.4], combined with the strongest baseline. The honest in-range version of the attack above; surfaced by the red team."
+    overrides:
+      retry_policy_shared.card_retry_cadence_days.value: [3, 7, 14]
+      income_event_population_mixture.types:
+        - {name: clustered_month_end_or_1st, weight_range: [0.3, 0.3]}
+        - {name: clustered_near_7th, weight_range: [0.3, 0.3]}
+        - {name: irregular_no_clear_cycle, weight_range: [0.4, 0.4]}
 
   - name: mostly_salaried
     probes: "A13 -- most customers follow a salary cycle, favouring the bet"
