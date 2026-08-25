@@ -63,7 +63,7 @@ failure_classes:
 
   bank_technical_decline:
     base_rate:
-      range: [0.01, 0.05]  # placeholder, added 2026-08-26 (A31) — no adaptive-policy results existed yet
+      range: [0.01, 0.05]  # placeholder, added 2026-08-25 (A31) — no adaptive-policy results existed yet
       status: ASSUMPTION
       assumption_id: A31
       note: "No public source found at all for this failure class — least-evidenced in the taxonomy"
@@ -72,7 +72,7 @@ failure_classes:
     recoverable_by_retry_timing: false
     status: FACT
     assumption_id: A19
-    validity_days_range: [180, 1095]  # placeholder, added 2026-08-26 (A32)
+    validity_days_range: [180, 1095]  # placeholder, added 2026-08-25 (A32)
     validity_days_status: ASSUMPTION
 
   mandate_revoked:
@@ -115,7 +115,7 @@ mandate_amount_distribution:
     ott_subscription: [99, 999]
     sip_investment: [500, 25000]
     emi: [1000, 50000]
-  type_mixture_weights:  # placeholder, added 2026-08-26 (A33) — no adaptive-policy results existed yet
+  type_mixture_weights:  # placeholder, added 2026-08-25 (A33) — no adaptive-policy results existed yet
     status: ASSUMPTION
     assumption_id: A33
     ott_subscription: [0.4, 0.6]

@@ -57,7 +57,7 @@ Per the anti-circularity requirement: `config/sim_params.yaml` must be frozen an
 policy is evaluated against it. Any change made after seeing evaluation results is logged here with date, what
 changed, why, and an explicit statement of whether results were already observed before the change.
 
-**2026-08-26** — Added numeric values for `bank_technical_decline.base_rate`, `mandate_expired`
+**2026-08-25** — Added numeric values for `bank_technical_decline.base_rate`, `mandate_expired`
 validity duration, and `mandate_amount_distribution` type-mixture weights (A31-A33). These fields existed
 in the frozen v0 schema with a status tag but no value — Day 3 simulator coding needed real numbers to
 run against. **No baseline or adaptive-policy results existed at this point** — freeze commit `894d1d3`
