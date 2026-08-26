@@ -18,9 +18,8 @@ policy-agnostic harness that scores any retry policy against frozen ground truth
 the gain comes from, sweeps it across every uncertain assumption, lets an LLM attack the result, and
 ties every decision to a rule in an auditable log.
 
-**The user is Arnuv Chaubey**, a student applying for a Razorpay AI Builder Internship
-(₹75,000/month, 6–12 months, in-person Bangalore). He also has a VP contact at Razorpay he intends to
-approach, and plans a LinkedIn post at submission. The stakes are personal, not academic.
+Built as a submission for Razorpay's AI Buildathon Track 03 (AI Revenue Recovery), deadline
+**5 September 2026**.
 
 ---
 
@@ -28,7 +27,7 @@ approach, and plans a LinkedIn post at submission. The stakes are personal, not 
 
 | | |
 |---|---|
-| Working dir | `/Users/arnuv/razorpay buildathon project` |
+| Working dir | repo root |
 | Repo | `github.com/ArnuvChaubey/adaptive-mandate-recovery-engine` |
 | **Repo visibility** | **PRIVATE — must be flipped to PUBLIC before submission.** The form requires a public URL. Secret scan is clean; it is safe to flip. |
 | Deadline | **5 September 2026**, applications close |
@@ -196,7 +195,7 @@ compliance vetoes → audit record → eval metrics / narrator.
 ## 6. Every command
 
 ```bash
-cd "/Users/arnuv/razorpay buildathon project"
+cd path/to/repo
 source .venv/bin/activate
 
 # tests
