@@ -33,15 +33,15 @@ approach, and plans a LinkedIn post at submission. The stakes are personal, not 
 | **Repo visibility** | **PRIVATE — must be flipped to PUBLIC before submission.** The form requires a public URL. Secret scan is clean; it is safe to flip. |
 | Deadline | **5 September 2026**, applications close |
 | Submission | Public GitHub repo + unlisted 5-min pitch video + 12-question Google Form (`forms.gle/d9r2gvxp8cmoZhon9`) |
-| Commits | 32 |
-| Tracked files | 89 |
-| Python | 5,755 lines |
-| Tests | **104 passing** (`python -m pytest tests/ -q`) |
+| Commits | 36 |
+| Tracked files | 96 |
+| Python | 6,551 lines |
+| Tests | **120 passing** (`python -m pytest tests/ -q`) |
 | Assumptions | 36 documented (A4 REFUTED) |
-| Build-log entries | 20 |
-| Sensitivity scenarios | 19 + 16 AI-generated attacks |
-| Frozen config hash | `8e2d9a49d5e3cbea10f461e67059dc9e79f94638` |
-| Working tree | clean, all pushed |
+| Build-log entries | 24 |
+| Sensitivity scenarios | 19 + 5 AI-generated attacks (redteam count varies run to run) |
+| Frozen config hash | `eaf9126d9797632f19829f6374e10806ca066b2d` |
+| Working tree | clean, committed, **not yet pushed** |
 
 **Judging criteria, verbatim from the site:** Problem taste ("did you pick something that actually
 matters"), Build quality ("does it run, is it structured, would you trust it"), **AI judgment** ("the
@@ -81,7 +81,7 @@ the adaptive policy loses on it.** That row stays in every report. Do not remove
 quietly drop it from the README. Reporting it is a major part of why this project is credible.
 
 ### 3.4 The headline is the CONSERVATIVE number
-Report **+11.2% recovery-rate lift against the strongest baseline**, not the +38.1% total or the
+Report **+12.5% recovery-rate lift against the strongest baseline**, not the +37.1% total or the
 +33.1% median. The original baseline (`[1]`, retry next day) turned out to be the *weakest* plausible
 schedule — a strawman built by accident. Fixing it cut the headline by two-thirds and that is the
 number we stand behind. See build log entry 13.
@@ -107,29 +107,33 @@ the decision loop.** It is the single strongest answer to the "AI judgment" crit
 
 | | baseline | +compliance aware | adaptive | adaptive hedged |
 |---|---|---|---|---|
-| recovery rate (recoverable) | 56.4% | 63.3% | **77.8%** | 74.3% |
-| recovery rate (all) | 51.0% | 57.1% | **70.2%** | 66.7% |
-| value recovered | ₹8.94M | ₹18.12M | **₹20.35M** | ₹19.67M |
-| wasted attempt rate | 1.2% | **0.9%** | 1.9% | 1.6% |
-| median days to recovery | **1.0** | **1.0** | 3.5 | **1.0** |
-| non-compliant proposals | 22.9% | **0%** | **0%** | **0%** |
+| recovery rate (recoverable) | 56.9% | 63.7% | **78.0%** | 74.4% |
+| recovery rate (all) | 51.5% | 57.7% | **70.6%** | 67.3% |
+| value recovered | ₹9.39M | ₹19.07M | **₹21.30M** | ₹20.80M |
+| wasted attempt rate | 0.8% | **0.8%** | 1.9% | 1.4% |
+| median days to recovery | **1.0** | **1.0** | 3.2 | **1.0** |
+| non-compliant proposals | 22.8% | **0%** | **0%** | **0%** |
 
-**Additional recovered by adaptive vs baseline: ₹11,407,365.**
+**Additional recovered by adaptive vs baseline: ₹11,914,526.**
 
 **Lift decomposition** (this exists because "adaptive escalates above the OTP ceiling" is a
 *compliance check*, not intelligence — a fair reviewer would call that out, so we isolated it):
 
 | source of gain | recovery rate | value |
 |---|---|---|
-| compliance awareness alone | +12.3% | +102.6% |
-| retry timing alone | +23.0% | +12.3% |
-| total | +38.1% | +127.6% |
+| compliance awareness alone | +12.0% | +103.1% |
+| retry timing alone | +22.4% | +11.7% |
+| total | +37.1% | +126.9% |
 
-**Sensitivity: 19/19 scenarios positive**, +10.3% to +58.4%, median +33.1%. Conservative headline
-**+11.2%** vs strongest baseline.
+**Sensitivity: 19/19 scenarios positive**, +10.3% to +54.7%, median +33.1%. Conservative headline
+**+12.5%** vs strongest baseline.
 
-**Red team: 16 AI-generated attacks, 0 landed**, weakest **+5.7%** — below the +10.0% floor of every
-hand-written scenario.
+**Red team: 5 AI-generated attacks, 0 landed**, weakest **+10.8%** — consistent with, not below, the
++10.3% floor of the current hand-written sensitivity sweep. (`docs/build_log.md` entry 15 records an
+earlier run finding +5.7% against an 18-scenario sweep floor of +10.0% — a different sweep size, so
+not directly comparable to this run. The red team is LLM-generated and its output is not guaranteed
+stable run to run. Re-verify with `python -m eval.redteam` before quoting a specific number in the
+video or form — don't just copy this one.)
 
 **Throughput (measured, not estimated): 65,268 decisions/sec** single unoptimised core including
 compliance checks. All-India UPI mandate execution averages ~312/sec, so one core is ~200× the
@@ -340,7 +344,7 @@ The most important artifact after the code. The strongest entries:
 
 1. **The frozen config is sacred.** Change it only with a CHANGELOG entry stating whether results
    were already seen.
-2. **Report the conservative number** (+11.2%), never the flattering one.
+2. **Report the conservative number** (+12.5%), never the flattering one.
 3. **Keep the metric we lose on.** It's why the rest is believable.
 4. **The LLM never decides.** It narrates, attacks, and translates — always mechanically validated.
 5. **The repo must be public before 5 September** or none of this is readable.

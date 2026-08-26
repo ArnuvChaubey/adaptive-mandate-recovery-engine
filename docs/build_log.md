@@ -834,3 +834,65 @@ customer that only exists to exercise the API.
 decisions, and the value of retrying a known failure comes entirely from bounding it in advance. An
 unbounded retry would have cost hours for the same answer; a bounded one cost ten minutes and
 produced stronger evidence than doing nothing.
+
+## 24. Asked "are we vulnerable in any way" and checked, instead of answering from memory
+
+**What happened.** Went through HANDOFF.md's own "things that will destroy this project" list — the
+frozen config, the `MandateView` redaction wall, the frozen ε, headline-number consistency, the
+simulated/live separation, and the no-LLM-in-the-loop rule — one by one, against the actual current
+repo state rather than against what the docs claimed.
+
+**Found a real one.** `config/sim_params.yaml`'s `frozen_commit_hash` pointed at
+`8e2d9a49d5e3cbea10f461e67059dc9e79f94638`, a commit that *predates* `5e2eb70` (entry 18's A36 move,
+which put `failure_class_mix` inside the frozen config). Every prior post-freeze change — A4, A35 —
+got a proper "rebaseline the hash" follow-up commit. A36 didn't. The freeze claim and the file's real
+history had quietly diverged, and nothing would have caught it: `simulator/config_loader.py` only
+checks that the hash field is a non-empty string, never that it points at matching content. This is
+exactly the failure mode the "freeze is decoration, not a guarantee" warning describes — it just
+hadn't happened yet when that warning was written.
+
+**Fixed and, more importantly, guarded.** Rebaselined the hash to the commit whose snapshot actually
+matches current content, and added `tests/test_frozen_config_integrity.py`, which runs `git show
+<hash>:config/sim_params.yaml` and diffs it against the file on disk (normalising out only the
+self-referential hash line). Verified it actually discriminates: red against the old broken hash,
+green against the corrected one. This is now a permanent regression test, not a one-time fix — the
+next silent hash-drift, whenever it happens, fails the suite instead of sitting undetected.
+
+**The headline-number sweep.** Grepped every tracked `.md`/`.py` file for old percentage figures
+(`11.2%`, `11.8%`, `81.1%`, `58.4%`, etc.) to check invariant 3.4. Two different things came back:
+
+- `docs/build_log.md` and `assumptions.md` carry old figures inside *dated, past-tense* entries —
+  e.g. entry 13's "+36% to +11.8%", CHANGELOG's "+11.8%". These describe what was true *when that
+  entry was written*, the same way this entry's own numbers will read as history someday. Rewriting
+  them to the current figure would falsify the log, not fix it — left alone, same as entry 21's "moved
+  from +11.2% to +12.5%" is correctly left alone.
+- `HANDOFF.md` is a current-state snapshot, not a log — every occurrence there was genuinely stale
+  (`+11.2%` instead of `+12.5%`, a `19/19` range of `+10.3% to +58.4%` instead of `+10.3% to +54.7%`,
+  a `16 AI-generated attacks / weakest +5.7%` redteam claim from an earlier, smaller-sweep run, plus a
+  "quick facts" table with a stale commit count, file count, line count, and — the same bug as
+  above — the stale frozen-config hash). Regenerated the actual current numbers by rerunning
+  `eval/run_eval.py` (30 seeds × 200 mandates) and `eval/sensitivity.py` rather than hand-editing
+  guesses, and rewrote every figure in HANDOFF.md's results section, quick-facts table, and "five
+  things to remember" list to match.
+
+**One number got weaker, not stronger, and that's reported too.** The current 5-attack redteam run's
+weakest result (+10.8%) is *not* below the current hand-written sensitivity floor (+10.3%) the way
+HANDOFF.md's old text claimed ("below the +10.0% floor of every hand-written scenario") — it's barely
+above it. Rather than re-running the (paid, LLM-backed) redteam until a scarier number reappeared,
+which would be exactly the kind of result-shopping this project's whole methodology exists to refuse,
+the honest current figure is reported as-is, with a note that redteam output isn't deterministic
+between runs and the number should be re-verified, not copied, before the video or form.
+
+**Also checked, held clean:** `MandateView` still structurally excludes `income_timing_type` from
+every policy (3.2); `wasted_attempt_epsilon` is still 0.01, untouched since before any policy existed
+(3.3); no `source: live_test_mode` figure is ever combined with a `source: simulation` one anywhere in
+`eval/report.py` — the live samples section renders raw qualitative records, not a computed lift, so
+there is no numeric path by which they could merge (3.5); no `policies/*/policy.py`, `compliance/`, or
+`eval/harness.py` code path lets an LLM call influence a retry/stop/escalate decision (3.6).
+
+**What this demonstrates.** An audit answered with "here's what I found and fixed, here's what I
+checked and it held, here's the one place a number got worse and I reported it anyway" is worth more
+than an audit that just re-reads the invariants back and says they're fine. The self-audit habit this
+project has practiced all along — treat your own claims adversarially — is the reason a real,
+previously-invisible bug (A36's missing rebaseline) got caught before submission instead of by a
+reviewer running `git log` on the config file.
