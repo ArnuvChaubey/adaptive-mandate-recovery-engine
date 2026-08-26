@@ -62,6 +62,7 @@ which is what makes "policy-agnostic" an architectural fact rather than a market
 | `compliance_aware_baseline` | ablation: baseline + over-ceiling escalation only, isolating how much lift is compliance rather than intelligence |
 | `adaptive_policy` | deterministic, context-aware; times retries by failure class, avoids the congestion window, escalates above the OTP ceiling |
 | `adaptive_hedged_policy` | iteration on the above: probes early before committing to the income-event bet |
+| `oracle_policy` | **not deployable** — sees the true balance trajectory, establishes the recovery ceiling. See below |
 | `external_policy_stub` | deliberately unimplemented — see below |
 
 A `Decision` that stops **must** name an escalation action; the dataclass raises otherwise. "Compliant
@@ -71,6 +72,20 @@ escalation" means stopping with a next step, not giving up, so the type system e
 that assumption A26 — that "policy-agnostic" is a design property and *not* a demonstration against
 Razorpay's real engine, which exposes no callable interface — is visible in the architecture instead
 of implied away.
+
+### `oracle_policy` — the one deliberate leak, kept visible
+Every success-probability function in the simulator was traced by hand: day-of-attempt timing only
+changes ground truth for `insufficient_funds` (the balance curve) and `npci_congestion` (already
+solved once the retry hour avoids the bad window). So the oracle is the adaptive policy with exactly
+that one substitution — population-level payday guess replaced by the true balance trajectory — and
+every other branch, including the 4-attempt cap and the OTP-ceiling escalation, inherited unchanged.
+
+The leak is structural but narrow: `observe_trajectory` is not part of the `Policy` contract. Only
+`OraclePolicy` implements it; the harness calls it via `hasattr` and stays completely policy-agnostic
+otherwise. Every other policy's ignorance of the true balance curve remains exactly as enforced as it
+was before the oracle existed. Result: adaptive captures 95.2% of the oracle's recovery rate, and the
+oracle only wins where the by-hand analysis predicted it could — confirmed by matching adaptive
+exactly on the four failure classes where timing shouldn't matter.
 
 ### The redaction boundary
 `Mandate` (simulator side) carries `income_timing_type`: whether this customer is actually paid on the
@@ -123,7 +138,11 @@ mistake one for the other.
   parameterisations where the policy loses. Proposals are validated against the schema and the
   declared ranges before they can run; the verdict comes from the metrics. A hallucinated attack
   costs a wasted scenario, never a false result.
-- `report.py` — self-contained HTML batch report, including the metric the policy loses on.
+- `frontier.py` — Pareto scatter (95 points: 19 scenarios × 5 policies) and a 4-axis radar chart,
+  plain SVG, no charting library. The oracle is drawn in a visually distinct colour everywhere it
+  appears, so it can never be mistaken for a competing candidate.
+- `report.py` — self-contained HTML batch report, including the metric the policy loses on and the
+  ceiling comparison.
 
 ### `audit/query.py`
 Natural-language interrogation of the decision log. The model translates a question into a

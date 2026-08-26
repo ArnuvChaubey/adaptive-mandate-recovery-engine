@@ -98,7 +98,8 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, default=10, help="Number of seeds per scenario")
     parser.add_argument("--n-mandates", type=int, default=200)
     parser.add_argument(
-        "--policies", default="baseline,compliance_aware_baseline,adaptive,adaptive_hedged"
+        "--policies",
+        default="baseline,compliance_aware_baseline,adaptive,adaptive_hedged,oracle",
     )
     parser.add_argument(
         "--candidate", default="adaptive",

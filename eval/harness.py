@@ -112,7 +112,6 @@ def run_policy_on_batch(
     config: dict,
     seed: int,
 ) -> RunResult:
-    rng = np.random.default_rng(seed)
     log = DecisionLog()
     mandate_outcomes: list[MandateOutcome] = []
     attempt_outcomes: list[AttemptOutcome] = []
@@ -122,7 +121,24 @@ def run_policy_on_batch(
         "delivery_failure_rate"
     ]["range"]
 
-    for mandate in mandates:
+    for mandate_index, mandate in enumerate(mandates):
+        # Each mandate gets its own RNG, independent of every other mandate in the batch. This is
+        # what makes "the same batch of mandates" a literally true claim across policies rather than
+        # an approximation: mandate N's failure class and balance trajectory are drawn from a stream
+        # that depends only on (seed, N), never on how many attempts policies before it happened to
+        # take. Confirmed broken before this fix -- 30 of 50 mandates got assigned a DIFFERENT
+        # failure class between a baseline run and an adaptive run of the "same" seed, because the
+        # two policies consumed different numbers of draws per mandate and the single shared stream
+        # drifted out of sync after the very first divergence. See docs/build_log.md entry 21.
+        #
+        # A per-attempt outcome (notification-delivery luck, decline magnitude, the success coinflip
+        # itself) is intentionally NOT re-matched across policies beyond this: those draws depend on
+        # which day and which attempt number a policy actually chose, and asking "what would the coin
+        # flip have been on a day this policy never attempted" isn't a more rigorous question, it's a
+        # different one. Matching stops at "what world does this mandate start in" -- which is exactly
+        # the boundary the MandateView redaction already draws between world and policy.
+        rng = np.random.default_rng((seed, mandate_index))
+
         failure_class = _assign_failure_class(config, rng)
         trajectory = simulate_balance(
             mandate_amount_inr=mandate.amount_inr,
@@ -131,6 +147,14 @@ def run_policy_on_batch(
             config=config,
             rng=rng,
         )
+
+        # The one deliberate leak of ground truth in the entire project. `observe_trajectory` is not
+        # part of the Policy contract -- only OraclePolicy implements it, so every other policy's
+        # ignorance of the true balance curve stays structural, not merely a matter of not calling
+        # this. The harness stays policy-agnostic: it doesn't know or care which policy this is, it
+        # just offers the hook and moves on if nothing is listening.
+        if hasattr(policy, "observe_trajectory"):
+            policy.observe_trajectory(trajectory)
 
         first_failure_day = _first_consistent_failure_day(
             failure_class, mandate, trajectory, rng
@@ -308,6 +332,7 @@ def run_policy_on_batch(
                 is_recoverable_class=failure_class not in UNRECOVERABLE_CLASSES,
                 attempts_made=attempt_number - 1 if recovered else attempt_number,
                 days_to_recovery=float(days_to_recovery) if days_to_recovery is not None else None,
+                revoked_mid_sequence=revoked_mid_sequence,
             )
         )
 

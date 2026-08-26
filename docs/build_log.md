@@ -691,3 +691,110 @@ to be clear about that is in the code, not in a postmortem.
 **What it demonstrates.** Auditing your own work for what you'd have to admit under questioning, and
 then removing the admission. The gap was found by writing an honest list of weaknesses, which is a
 reasonable argument for writing one.
+
+---
+
+## 21. Every policy comparison had been drawing from two different worlds
+
+**What happened.** Building the oracle needed a clean per-failure-class breakdown, comparing adaptive
+against a policy with perfect information. A quick diagnostic script produced a strange result:
+totals per failure class differed noticeably between the adaptive run and the oracle run of the "same"
+seed. Checking directly: **30 of 50 mandates got assigned a different failure class** between a
+baseline run and an adaptive run of the identical seed.
+
+**Root cause.** `run_policy_on_batch` seeded one RNG at the top of the function and let it advance
+continuously across the whole batch loop. Mandate *generation* (amount, type, timing) came from a
+separate, genuinely policy-independent process, so that part was always fair. But failure-class
+assignment, balance-trajectory generation, and every attempt-loop draw came from that one shared,
+continuously-advancing stream — and because different policies take different numbers of attempts,
+they consume a different number of draws per mandate. The instant policy A and policy B diverged on
+mandate 1's attempt count, mandate 2 onward started drawing from different points in the stream under
+each policy. "Mandate 47" was not the same synthetic entity across two policy runs; it was two
+different mandates that happened to share an index.
+
+**Why it mattered, and why it didn't invalidate anything already reported.** Aggregate comparisons —
+56.9% vs 78.0% recovery — stayed statistically valid; both figures are large-N averages over
+independent samples from the same generative process, and the law of large numbers doesn't care
+whether the samples are paired. But "the same batch of mandates," read literally, hadn't been true.
+A matched-pairs design — mandate 47 faces the identical failure cause and balance curve under every
+policy, only the chosen timing differs — is strictly more rigorous: same validity, lower variance, and
+a much more auditable claim ("only the timing choice differed" beats "these were independently drawn
+and averaged out"). It's also the property the oracle comparison benefits from most, since the whole
+point was to show precisely *where* it wins.
+
+**How we got out.** Each mandate now gets its own RNG, seeded by `(seed, mandate_index)`, independent
+of every other mandate's draw consumption. World-generation (failure class, trajectory) happens first
+within that per-mandate stream, before any policy sees the mandate, so it's provably identical
+regardless of which policy runs next. Verified directly: 0 mismatches across all 200 mandates for
+baseline vs. adaptive vs. oracle, same seed, where the un-fixed version had produced 30/50 mismatches
+on a smaller sample. Two regression tests pin this — one checking cross-policy agreement directly, one
+checking that a later mandate is unaffected by how many attempts an earlier mandate consumed under a
+different policy.
+
+Per-attempt realized randomness (notification-delivery luck, decline-magnitude draws) is deliberately
+**not** re-matched beyond this. Those depend on which day and attempt number a policy actually chose;
+asking "what would the coin flip have been on a day this policy never attempted" isn't a more rigorous
+question, it's a different one. Matching stops exactly at "what world does this mandate start in" —
+the same boundary the `MandateView` redaction already draws between world and policy.
+
+Every canonical number in this project was regenerated after this fix. The direction and shape of
+every finding held; the conservative headline moved from +11.2% to +12.5%, tighter rather than
+different, consistent with a lower-variance design producing a cleaner estimate rather than a new
+conclusion.
+
+**What it demonstrates.** A subtle correctness property, found not by looking for it but by building
+something new (the oracle) that made an existing blind spot visible for the first time. The fix was
+small — one line, reseed per mandate instead of once per batch — but it was foundational: it touched
+every comparison the project had ever made, and every one of them got more rigorous, not different.
+
+---
+
+## 22. An oracle that could only win where the theory said it could
+
+**What happened.** The project's own architecture review identified a real weakness: enormous
+evaluation machinery pointed at one modest deterministic policy, with no way to say whether 78%
+recovery was actually *good* — good relative to what? A weak baseline, a strong one, the best
+achievable? Rather than adding a predictive model (rejected on separate grounds — trained and
+evaluated on the same synthetic simulator whose assumptions the project spends 6,000 words
+documenting as unverified, which trades "we don't have this" for a strictly worse claim: "we predicted
+our own assumptions back to ourselves"), the fix was an **oracle**: a policy allowed to see the
+customer's true balance trajectory, used only to establish a ceiling, never registered as a
+deployable candidate.
+
+**The design discipline that made it defensible rather than a cheat.** Before writing any code, every
+success-probability function in the simulator was traced by hand. The result was narrower than
+expected: day-of-attempt timing only changes ground-truth probability for **two** of six failure
+classes — `insufficient_funds` (via the balance curve) and `npci_congestion` (via the hour-of-day
+window, and that one's already fully solved by the existing congestion-avoidance rule once the retry
+hour is fixed outside the bad window). For the other four classes, probability is either
+day-independent or a hard stop regardless of timing. So the oracle isn't a new policy built from
+scratch — it *is* the adaptive policy, with exactly the one guess (population-level payday) replaced
+by the true answer, and every other branch inherited unchanged, including the 4-attempt cap and the
+OTP-ceiling escalation. If it won everywhere, that would mean the analysis was wrong. It didn't:
+oracle matched adaptive exactly on `bank_technical_decline` (80.8% both) and `notification_undelivered`
+(81.4% vs 81.5%, noise), and beat it specifically on `insufficient_funds`.
+
+**Result:** adaptive captures **95.2%** of the oracle's recovery rate. Oracle's own wasted-attempt
+rate: **0.0%** — it only ever retries on a day it already knows will work, which is exactly the
+information a real policy doesn't have and structurally can't.
+
+**The two things that had to be scoped precisely, or the claim would overreach.** First: the oracle is
+a *recovery-maximising* ceiling specifically, not a simultaneous ceiling on every metric — the
+sequence that maximises recovery probability isn't necessarily the one that minimises waste or
+time-to-recovery, and the report says so rather than implying one oracle bounds everything at once.
+Second: the oracle sees the balance trajectory and nothing else — not the customer's private
+revocation threshold, not which random draw a technical decline or notification-delivery event will
+land on. Extending its knowledge indefinitely would make "oracle" meaningless; this is bounded,
+specific foreknowledge about the one thing that actually matters, not an exemption from the rules
+everyone else follows.
+
+**How the leak stays contained.** `MandateView` still structurally omits the trajectory from every
+other policy. The oracle gets it through `observe_trajectory`, a hook that isn't part of the `Policy`
+contract — only `OraclePolicy` implements it, the harness calls it via `hasattr` and stays completely
+policy-agnostic otherwise, and every other policy's ignorance of the true balance curve remains
+exactly as structural as it was before the oracle existed.
+
+**What it demonstrates.** A standard technique from other fields (perfect-information optimum,
+oracle forecast, expert policy) applied with the same discipline as everything else here: define the
+ceiling's exact scope before measuring against it, verify by hand that the mechanism producing the
+result matches the mechanism claimed, and report where it *doesn't* win as carefully as where it does.

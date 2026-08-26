@@ -33,6 +33,12 @@ class MandateOutcome:
     is_recoverable_class: bool
     attempts_made: int
     days_to_recovery: float | None
+    # Customer-initiated revocation mid-sequence (A16), distinct from the mandate STARTING already
+    # revoked. This is the mechanism entry 16 in the build log measures: a policy that spends
+    # attempts badly loses the mandate permanently, not just the current attempt. Added for the
+    # Pareto frontier -- without it, the cost of wasting attempts was visible in the build log but
+    # not in a metric anyone could plot.
+    revoked_mid_sequence: bool = False
 
 
 @dataclass(frozen=True)
@@ -52,6 +58,11 @@ class MetricsReport:
 
     median_days_to_recovery: float | None
     iqr_days_to_recovery: tuple[float, float] | None
+
+    # A16. The real cost of a policy that spends attempts badly: the customer revokes before the
+    # policy's own strategy gets to play out. Denominator is all mandates, not just recoverable
+    # ones -- a mandate that started unrecoverable was never at risk of THIS kind of revocation.
+    revocation_rate: float = 0.0
 
 
 def is_wasted_attempt(outcome: AttemptOutcome, epsilon: float) -> bool:
@@ -95,6 +106,8 @@ def compute_metrics(
     else:
         median_days, iqr = None, None
 
+    revoked = sum(1 for m in mandate_outcomes if m.revoked_mid_sequence)
+
     return MetricsReport(
         policy_name=policy_name,
         n_mandates=len(mandate_outcomes),
@@ -107,6 +120,7 @@ def compute_metrics(
         wasted_attempt_rate=wasted / len(attempt_outcomes) if attempt_outcomes else 0.0,
         median_days_to_recovery=median_days,
         iqr_days_to_recovery=iqr,
+        revocation_rate=revoked / len(mandate_outcomes) if mandate_outcomes else 0.0,
     )
 
 
@@ -130,4 +144,6 @@ def recovery_lift(baseline: MetricsReport, candidate: MetricsReport) -> dict[str
         "recovered_value_inr": rel(candidate.recovered_value_inr, baseline.recovered_value_inr),
         # Negative is better here: fewer wasted attempts.
         "wasted_attempt_rate": rel(candidate.wasted_attempt_rate, baseline.wasted_attempt_rate),
+        # Negative is better here too: fewer customers driven to revoke.
+        "revocation_rate": rel(candidate.revocation_rate, baseline.revocation_rate),
     }

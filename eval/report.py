@@ -17,6 +17,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from eval.frontier import radar_svg, scatter_svg
 from eval.harness import run_policy_on_batch
 from eval.metrics.definitions import MetricsReport, compute_metrics, recovery_lift
 from eval.run_eval import AVAILABLE_POLICIES, REPORTS_DIR, load_seeds
@@ -33,6 +34,7 @@ POLICY_LABELS = {
     "compliance_aware_baseline": "+ Compliance aware",
     "adaptive": "Adaptive",
     "adaptive_hedged": "Adaptive (hedged)",
+    "oracle": "Oracle (ceiling)",
 }
 
 CSS = """
@@ -288,12 +290,67 @@ def _live_samples() -> str:
     return out
 
 
+def _frontier(reports: dict[str, MetricsReport]) -> str:
+    if "oracle" not in reports or "adaptive" not in reports:
+        return ""
+    adapt, oracle = reports["adaptive"], reports["oracle"]
+    captured = (
+        adapt.recovery_rate_recoverable_only / oracle.recovery_rate_recoverable_only
+        if oracle.recovery_rate_recoverable_only else 0.0
+    )
+
+    scatter_data = {}
+    if SENSITIVITY_PATH.exists():
+        scatter_data = json.loads(SENSITIVITY_PATH.read_text())
+    scatter = (
+        scatter_svg(scatter_data) if scatter_data.get("scenarios")
+        else '<p class="sub">Run <code>python -m eval.sensitivity</code> to populate the scatter.</p>'
+    )
+    radar = radar_svg({name: vars(r) for name, r in reports.items()})
+
+    return f"""<p class="sub">Is {_pct(adapt.recovery_rate_recoverable_only)} recovery good? Good
+relative to what — a weak baseline, a strong one, or the best achievable? The oracle answers that:
+it sees the customer's true balance trajectory, something no real system ever could, and picks the
+objectively best remaining attempt day within the exact same 4-attempt cap and compliance floors
+every other policy respects. It is <b>not a deployable candidate</b> — it exists only to establish a
+ceiling.</p>
+
+<div class="grid">
+<div class="card"><div class="label">Adaptive captures</div>
+<div class="value pos">{captured:.1%}</div>
+<div class="note">of the oracle's recovery rate</div></div>
+<div class="card"><div class="label">Oracle recovery rate</div>
+<div class="value">{_pct(oracle.recovery_rate_recoverable_only)}</div>
+<div class="note">recovery-maximising ceiling, see caveat below</div></div>
+<div class="card"><div class="label">Oracle wasted attempts</div>
+<div class="value">{_pct(oracle.wasted_attempt_rate)}</div>
+<div class="note">retries only when the balance actually covers it</div></div>
+</div>
+
+<p class="sub">This is a <b>recovery-maximising</b> ceiling specifically, not a simultaneous ceiling
+on every metric — the attempt sequence that maximises recovery probability is not necessarily the
+one that minimises waste or time-to-recovery. Tracing every failure-class's success-probability
+function confirms the oracle can only beat adaptive on <code>insufficient_funds</code>: for the other
+five classes, ground-truth success probability doesn't depend on which day is chosen once the
+congestion window and notification floor are already respected, so adaptive is already at the
+ceiling there.</p>
+
+<div class="scroll">{scatter}</div>
+<p class="sub" style="margin-top:4px">95 points: 19 sensitivity scenarios × 5 policies. Not five
+dots — the cloud each policy actually occupies across every plausible parameterisation tested.</p>
+
+<div style="margin-top:20px">{radar}</div>
+<p class="sub">Four axes, normalised so further outward is always better. No policy's shape covers
+the full square — recovery and speed pull in different directions from waste and revocations. That's
+the "neither policy dominates" finding, seen rather than read.</p>"""
+
+
 def build(seeds: list[int], n_mandates: int) -> str:
     config = load_config()
     reports: dict[str, MetricsReport] = {}
     sample_log = None
 
-    for name in ["baseline", "compliance_aware_baseline", "adaptive", "adaptive_hedged"]:
+    for name in ["baseline", "compliance_aware_baseline", "adaptive", "adaptive_hedged", "oracle"]:
         policy = AVAILABLE_POLICIES[name]()
         m_out, a_out = [], []
         for seed in seeds:
@@ -345,7 +402,10 @@ an integration proof and carries no statistical claim.</div>
 {head}
 
 <h2>Policy comparison</h2>
-{_metric_rows(reports)}
+{_metric_rows({k: v for k, v in reports.items() if k != "oracle"})}
+
+<h2>How far from the ceiling?</h2>
+{_frontier(reports)}
 
 <h2>Where the gain comes from</h2>
 <p class="sub">The adaptive policy escalates amounts above the ₹15,000 no-OTP ceiling instead of
@@ -361,7 +421,9 @@ not — the measurable cost of assumption A13. The metric and its threshold were
 adaptive policy existed, which is why this row is still here. The hedged variant halves the
 regression and cuts median recovery time from {reports['adaptive'].median_days_to_recovery:.1f} to
 {reports['adaptive_hedged'].median_days_to_recovery:.1f} days, at the cost of ~9 points of lift —
-because the extra attempt more than doubles customer-initiated revocations. Neither dominates.</p>
+because the extra attempt more than doubles customer-initiated revocations. Neither dominates.
+Notice the oracle above wastes almost nothing either — it only ever retries on a day it already
+knows will work, which is exactly the information adaptive doesn't have and can't.</p>
 
 <h2>Does it survive the assumptions?</h2>
 {_sensitivity()}
