@@ -798,3 +798,39 @@ exactly as structural as it was before the oracle existed.
 oracle forecast, expert policy) applied with the same discipline as everything else here: define the
 ceiling's exact scope before measuring against it, verify by hand that the mechanism producing the
 result matches the mechanism claimed, and report where it *doesn't* win as carefully as where it does.
+
+---
+
+## 23. The tokenization wall, retried on purpose — and it held
+
+**What happened.** Two days after entry 4's original failure, deliberately retried the exact same
+subscription-authorization path once: fresh subscription, Safari (no saved identity), the same
+documented test card. The reasoning for trying again: the original failure was platform-side
+(`error_source: internal`), so it was plausibly a transient issue Razorpay had since fixed, and
+finding out costs little if the attempt is bounded.
+
+It wasn't fixed. Same wall.
+
+**The part worth recording is the discipline, not the outcome.** The protocol was agreed *before*
+attempting: one clean try, Safari, the documented card, and a hard stop the moment the same failure
+mode reappeared — no browser-switching, no "one more thing to check," no repeat of the multi-hour
+troubleshooting entry 4 describes. It held. First sign of the familiar failure, the attempt stopped,
+and this entry got written instead of another hour of debugging.
+
+**Why a second failure is better evidence than the first alone.** One occurrence could plausibly be
+a fluke — a bad deploy that happened to be live for a few hours on one specific day. Two occurrences,
+in separate sessions, on different dates, following the exact same steps, is the signature of a
+persistent issue rather than a coincidence. The live-batch fallback (`create_test_payment_link.py`,
+entry 4/17) is confirmed as the right call, not a workaround abandoned early — full subscription
+lifecycle demonstration stays out of scope for this submission on that basis, not on time pressure.
+
+**A small, real bug fixed in passing.** Creating a fresh subscription for the retry hit an unrelated
+issue: `client.customer.create(..., fail_existing=0)` was supposed to reuse an existing test customer
+rather than error, and didn't. Fixed by generating a unique email per run instead of chasing the SDK's
+exact expected serialization for that flag — simpler, and just as correct for a throwaway test
+customer that only exists to exercise the API.
+
+**What it demonstrates.** That "try it again" and "keep debugging indefinitely" are different
+decisions, and the value of retrying a known failure comes entirely from bounding it in advance. An
+unbounded retry would have cost hours for the same answer; a bounded one cost ten minutes and
+produced stronger evidence than doing nothing.

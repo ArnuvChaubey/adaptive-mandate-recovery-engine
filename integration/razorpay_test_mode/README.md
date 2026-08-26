@@ -34,6 +34,10 @@ requirement.
 **Workaround:** `create_test_payment_link.py` creates a plain one-time Payment Link instead of authenticating
 a Subscription. One-time payments don't require card tokenization, so they route through the simple mock
 bank Success/Failure page and produce a real `payment.authorized` / `payment.captured` pair -- sufficient to
-prove the tunnel + signature verification + audit logging mechanism end to end. Full subscription-lifecycle
-authentication (`create_test_subscription.py`) remains unresolved and is deferred to Milestone 6, with more
-time budgeted to either retry it or scope the live test-mode subset around one-time payments instead.
+prove the tunnel + signature verification + audit logging mechanism end to end.
+
+**Confirmed persistent, not a one-off.** Retried deliberately two days later, fresh subscription, clean
+browser profile, same documented test card -- same failure. Two independent occurrences on different dates
+is the signature of a real platform issue rather than a transient blip. Full subscription-lifecycle
+authentication (`create_test_subscription.py`) is out of scope for this submission on that basis, not
+because it was undertried. See `docs/build_log.md` entries 4 and 23.

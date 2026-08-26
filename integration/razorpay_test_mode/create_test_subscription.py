@@ -6,6 +6,8 @@ one-off manual dashboard click-through, per the 3-day test-mode token window con
 Run: python -m integration.razorpay_test_mode.create_test_subscription
 """
 
+import time
+
 from integration.razorpay_test_mode.client import get_client
 
 
@@ -24,13 +26,16 @@ def main():
     })
     print(f"Created plan: {plan['id']}")
 
+    # fail_existing:0 was supposed to make this idempotent (reuse the customer if the email already
+    # exists) but the API rejected it anyway on a repeat run. Rather than chase that down, a unique
+    # email per run sidesteps the collision entirely -- simpler and just as good for a throwaway
+    # test customer that only exists to exercise the API.
     customer = client.customer.create({
         "name": "Test Customer",
-        "email": "test.customer@example.com",
+        "email": f"test.customer.{int(time.time())}@example.com",
         "contact": "9999999999",
-        "fail_existing": 0,  # reuse if this test customer already exists
     })
-    print(f"Created/reused customer: {customer['id']}")
+    print(f"Created customer: {customer['id']}")
 
     subscription = client.subscription.create({
         "plan_id": plan["id"],
