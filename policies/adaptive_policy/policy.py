@@ -30,6 +30,7 @@ and any measured lift would be meaningless.
 from datetime import datetime, time, timedelta
 
 from audit.decision_log_schema.records import DecisionType, EscalationAction
+from compliance.invariants.rules import rbi_category_for
 from policies.policy_interface.base import Decision, Policy, PolicyState
 from simulator.mandate import UNRECOVERABLE_CLASSES, FailureClass
 
@@ -130,7 +131,12 @@ class AdaptivePolicy(Policy):
         # to ask the customer to re-authenticate.
         ceiling_cfg = config["compliance_floors"]["otp_free_ceiling_inr"]
         ceiling = ceiling_cfg["value"]
-        if state.mandate.amount_type.value in ceiling_cfg["higher_ceiling_categories"]:
+        # A6's higher ceiling is written in RBI's category names, not this project's product names,
+        # so the two have to be translated before they can be compared. Comparing them directly --
+        # which is what this did until entry 26 -- silently never matched, because no AmountType value
+        # is ever spelled "mutual_funds". The mapping lives in compliance/ with the rest of the
+        # regulatory knowledge, so the policy and the invariant cannot drift apart on it.
+        if rbi_category_for(state.mandate.amount_type.value) in ceiling_cfg["higher_ceiling_categories"]:
             ceiling = ceiling_cfg["higher_ceiling_inr"]
 
         if state.mandate.amount_inr > ceiling:

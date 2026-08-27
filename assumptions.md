@@ -60,6 +60,22 @@ Per the anti-circularity requirement: `config/sim_params.yaml` must be frozen an
 policy is evaluated against it. Any change made after seeing evaluation results is logged here with date, what
 changed, why, and an explicit statement of whether results were already observed before the change.
 
+**2026-08-27 (seventh entry) — CODE CORRECTNESS FIX, not a config change.** `config/sim_params.yaml`
+is untouched. Both the adaptive policy and `compliance/invariants/rules.py` compared this project's
+product names (`ott_subscription`, `sip_investment`, `emi`) directly against A6's
+`higher_ceiling_categories` (`insurance`, `mutual_funds`, `credit_card_bills`). Those sets are
+disjoint, so the ₹1,00,000 higher ceiling was unreachable everywhere and A6's carve-out was, in
+effect, unimplemented — while a unit test covering it passed throughout, because it supplied the
+category by hand. Fixed with an explicit `sip_investment → mutual_funds` mapping (deliberately not
+mapping `emi`, which is a loan instalment rather than a credit-card bill; claiming that carve-out
+without a citation is the A4 mistake).
+
+**Results were already observed before this change, and it made ours worse.** The conservative
+headline fell from **+12.5% to +8.7%**, because the bug was suppressing the *baseline* more than the
+candidate — 12.3% of mandates were being escalated when the law permits an auto-retry, and the
+baseline lost more of them. Recorded here rather than quietly re-baselined: this is a correctness fix
+to a misimplemented FACT, in the direction that costs us. See docs/build_log.md entry 26.
+
 **2026-08-25 (sixth entry)** — Moved the failure-class distribution from `eval/harness.py` into
 `config/sim_params.yaml` as `failure_class_mix` (A36). It had been hardcoded in the harness since day
 4, which meant the single most impactful ground-truth parameter in the simulator sat **outside** the

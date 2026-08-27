@@ -83,7 +83,7 @@ every other branch, including the 4-attempt cap and the OTP-ceiling escalation, 
 The leak is structural but narrow: `observe_trajectory` is not part of the `Policy` contract. Only
 `OraclePolicy` implements it; the harness calls it via `hasattr` and stays completely policy-agnostic
 otherwise. Every other policy's ignorance of the true balance curve remains exactly as enforced as it
-was before the oracle existed. Result: adaptive captures 95.2% of the oracle's recovery rate, and the
+was before the oracle existed. Result: adaptive captures 95.0% of the oracle's recovery rate, and the
 oracle only wins where the by-hand analysis predicted it could — confirmed by matching adaptive
 exactly on the four failure classes where timing shouldn't matter.
 

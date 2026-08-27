@@ -953,3 +953,79 @@ finding two real defects in the process — one dormant bug that would have gone
 and one platform constraint that could only be discovered by actually consuming it. The discipline that
 mattered was refusing to let "it works" stand in for "I checked both branches": the escalation case
 firing nothing is the half that's easy to skip and the half that actually proves the compliance floor.
+
+## 26. The regulation had a carve-out. The code had a branch for it. They never once met.
+
+**What happened.** While writing an explainer of the policy — not debugging, just trying to describe
+rule ADAPT-002 accurately — the over-ceiling check stopped making sense on a second read:
+
+```python
+if state.mandate.amount_type.value in ceiling_cfg["higher_ceiling_categories"]:
+```
+
+`amount_type.value` is one of `ott_subscription`, `sip_investment`, `emi`. `higher_ceiling_categories`
+is `["insurance", "mutual_funds", "credit_card_bills"]`. The intersection of those two sets is empty,
+and always was. A6's higher ₹1,00,000 ceiling could never apply to anything, anywhere, in either the
+policy or the compliance invariant.
+
+**Why it was invisible.** There *is* a unit test for the higher ceiling, and it passed the whole time —
+because it builds `ProposedDecision(amount_category="mutual_funds")` by hand. It proves the invariant
+handles the category correctly and proves nothing whatsoever about whether any real code path ever
+supplies that category. Nothing did: `amount_category` defaulted to `"general"` at every production
+call site. This is entry 14's lesson arriving a second time in a different costume — a rule that
+passes its unit test, runs in production, and does nothing. The first time it was a congestion window
+no attempt could ever land in. This time it was a regulatory carve-out no product could ever qualify
+for.
+
+**Who it was costing.** A SIP *is* a mutual-fund product — that is what a Systematic Investment Plan
+is — so the dead branch was dead for precisely the population it had been written to serve. **12.3% of
+all mandates** were SIP mandates above ₹15,000: legally auto-retryable up to ₹1,00,000, and escalated
+anyway. Not a compliance violation — escalating when you may retry is over-cautious, not illegal — but
+a straight recovery loss, and a misimplementation of a documented FACT rather than a judgement call.
+
+**The fix.** A single `RBI_CATEGORY_BY_AMOUNT_TYPE` mapping in `compliance/`, next to the rest of the
+regulatory knowledge so the policy and the invariant cannot drift apart on it, plus threading
+`amount_category` through the harness at the point the `ProposedDecision` is built. Deliberately
+partial: `sip_investment → mutual_funds` and nothing else. `emi` is **not** mapped to
+`credit_card_bills` — an EMI is a loan instalment and a credit-card bill is a different instrument, and
+guessing an extra category into a regulatory carve-out claims a legal allowance with no citation
+behind it. That is exactly the mistake A4 represented, and it is not worth repeating for a few points
+of recovery.
+
+**What it did to the numbers, including the part that hurts.**
+
+| | before | after |
+|---|---|---|
+| baseline recovery | 56.9% | **65.9%** |
+| baseline non-compliant proposals | 22.8% | **11.7%** |
+| adaptive recovery | 78.0% | **86.0%** |
+| adaptive value recovered | ₹21.3M | **₹30.1M** |
+| lift from compliance awareness alone | +12.0% | **+5.3%** |
+| lift from retry timing alone | +22.4% | **+23.9%** |
+| **conservative headline** | **+12.5%** | **+8.7%** |
+
+The headline fell by roughly a third, and the reason is worth stating precisely: **the bug was
+handicapping the baseline more than it was handicapping us.** Half the baseline's blocked proposals
+were legal all along. Our own compliance implementation had been manufacturing lift by refusing
+retries the law permits — which is entry 13's finding almost exactly, arriving from the opposite
+direction. Entry 13 found an accidentally weak baseline in the *config*. This one was in the
+*compliance layer*, which is worse, because that is the layer the project points at when it argues it
+should be trusted.
+
+**The consolation is real, and it is not the number.** The decomposition got materially more
+defensible: compliance awareness now accounts for +5.3% of the recovery gain instead of +12.0%, and
+timing for +23.9%. Before this fix, the largest single driver of the value headline was a
+compliance freebie. Now the majority of what remains is the part actually engineered. A smaller
+number, carrying a much better claim.
+
+**What now guards it.** `tests/test_otp_ceiling_categories.py` tests *reachability*, which is the
+property that was missing: at least one `AmountType` must map into a higher-ceiling category, every
+mapped category must be one the config actually names, unmapped products must fall back to `general`,
+and the end-to-end behaviour is pinned in both directions — a ₹20,000 SIP passes, a ₹20,000 EMI is
+still blocked. Verified to fail against the pre-fix state rather than assumed to.
+
+**What it demonstrates.** That "it has a test" and "it works" are different claims, and the gap
+between them is where this project keeps finding its own bugs — twice now by the same mechanism. Also
+that the discipline holds under pressure: this surfaced nine days before submission, while writing
+*promotional* material, and it cost a third of the headline number. Reporting +8.7% because it is true
+is the entire argument for believing anything else here.

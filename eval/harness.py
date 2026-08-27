@@ -21,7 +21,7 @@ from audit.decision_log_schema.records import (
     EscalationAction,
     Source,
 )
-from compliance.invariants.rules import ProposedDecision, evaluate_all
+from compliance.invariants.rules import ProposedDecision, evaluate_all, rbi_category_for
 from eval.metrics.definitions import AttemptOutcome, MandateOutcome
 from policies.policy_interface.base import MandateView, Policy, PolicyState
 from simulator.balance_evolution.process import simulate_balance
@@ -196,6 +196,9 @@ def run_policy_on_batch(
                 amount_inr=mandate.amount_inr,
                 scheduled_retry_at=decision.scheduled_retry_at,
                 notification_sent_at=decision.notification_to_send_at or notification_sent_at,
+                # Without this the category defaulted to "general" and A6's higher ceiling could
+                # never apply to anything -- see rbi_category_for and build log entry 26.
+                amount_category=rbi_category_for(mandate.amount_type.value),
             )
             checks = evaluate_all(proposed, config)
             compliant = all(c.passed for c in checks)

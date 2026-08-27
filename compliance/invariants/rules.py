@@ -25,6 +25,28 @@ class ProposedDecision:
     amount_category: str = "general"
 
 
+# A6 names three categories that carry the higher INR 1,00,000 no-OTP ceiling: insurance, mutual
+# funds, and credit-card bills. Those are RBI's words. This project's product taxonomy uses its own
+# names (`ott_subscription`, `sip_investment`, `emi`), and until entry 26 nothing ever translated
+# between the two -- so `amount_category` was left at its "general" default everywhere in production
+# and the higher-ceiling branch could never fire. A `sip_investment` *is* a mutual-fund product, so
+# the branch was dead for exactly the population it was written to serve.
+#
+# Deliberately partial. `emi` is NOT mapped to `credit_card_bills`: an EMI is a loan instalment, and
+# a credit-card bill is a different instrument that happens to also be payable in instalments. A6's
+# higher ceiling is a specific regulatory carve-out and guessing an extra category into it would be
+# claiming a legal allowance we cannot cite -- the same mistake A4 represented. `ott_subscription`
+# maps to nothing for the same reason.
+RBI_CATEGORY_BY_AMOUNT_TYPE: dict[str, str] = {
+    "sip_investment": "mutual_funds",
+}
+
+
+def rbi_category_for(amount_type_value: str) -> str:
+    """Translates a product type into the RBI category A6 speaks in, or 'general' if none applies."""
+    return RBI_CATEGORY_BY_AMOUNT_TYPE.get(amount_type_value, "general")
+
+
 INVARIANT_NOTIFICATION_TIMING = "INV-RBI-6a-NOTIFICATION-TIMING"
 INVARIANT_OTP_CEILING = "INV-RBI-OTP-CEILING"
 

@@ -22,6 +22,7 @@ most flattering one.
 """
 
 from audit.decision_log_schema.records import DecisionType, EscalationAction
+from compliance.invariants.rules import rbi_category_for
 from policies.baseline_policy.policy import BaselinePolicy
 from policies.policy_interface.base import Decision, PolicyState
 from simulator.mandate import UNRECOVERABLE_CLASSES
@@ -36,7 +37,10 @@ class ComplianceAwareBaselinePolicy(BaselinePolicy):
         if state.failure_class not in UNRECOVERABLE_CLASSES:
             ceiling_cfg = config["compliance_floors"]["otp_free_ceiling_inr"]
             ceiling = ceiling_cfg["value"]
-            if state.mandate.amount_type.value in ceiling_cfg["higher_ceiling_categories"]:
+            # Same RBI-category translation the adaptive policy uses -- see entry 26. Both
+            # policies must read the ceiling identically or the ablation stops isolating
+            # compliance awareness and starts measuring an accidental difference between them.
+            if rbi_category_for(state.mandate.amount_type.value) in ceiling_cfg["higher_ceiling_categories"]:
                 ceiling = ceiling_cfg["higher_ceiling_inr"]
 
             if state.mandate.amount_inr > ceiling:

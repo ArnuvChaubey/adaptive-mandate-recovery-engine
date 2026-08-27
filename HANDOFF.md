@@ -35,9 +35,9 @@ Built as a submission for Razorpay's AI Buildathon Track 03 (AI Revenue Recovery
 | Commits | 36 |
 | Tracked files | 96 |
 | Python | 6,551 lines |
-| Tests | **120 passing** (`python -m pytest tests/ -q`) |
+| Tests | **130 passing** (`python -m pytest tests/ -q`) |
 | Assumptions | 36 documented (A4 REFUTED) |
-| Build-log entries | 24 |
+| Build-log entries | 26 |
 | Sensitivity scenarios | 19 + 5 AI-generated attacks (redteam count varies run to run) |
 | Frozen config hash | `eaf9126d9797632f19829f6374e10806ca066b2d` |
 | Working tree | clean, committed, **not yet pushed** |
@@ -80,15 +80,18 @@ the adaptive policy loses on it.** That row stays in every report. Do not remove
 quietly drop it from the README. Reporting it is a major part of why this project is credible.
 
 ### 3.4 The headline is the CONSERVATIVE number
-Report **+12.5% recovery-rate lift against the strongest baseline**, not the +37.1% total or the
-+33.1% median. The original baseline (`[1]`, retry next day) turned out to be the *weakest* plausible
-schedule — a strawman built by accident. Fixing it cut the headline by two-thirds and that is the
-number we stand behind. See build log entry 13.
+Report **+8.7% recovery-rate lift against the strongest baseline**, not the +30.5% total or the
++28.4% median. This number has been cut twice, both times by our own bugs, both times in the direction that costs
+us. Entry 13: the baseline cadence (`[1]`, retry next day) turned out to be the *weakest* plausible
+schedule — a strawman built by accident — which took ~36% down to +11.8%. Entry 26: A6's higher OTP
+ceiling was unreachable dead code, so the baseline was being denied retries the law actually permits,
+which took +12.5% down to +8.7%. Both times the fix strengthened the comparison rather than the
+candidate. That is the number we stand behind.
 
 ### 3.5 Never mix simulated and live numbers
 Every recovery/lift/₹ figure is a **simulated-batch statistic** and must be labelled as such
-everywhere. The live Razorpay test-mode work (9 entities + webhook loop) is an **integration proof
-only** and must never appear beside a recovery-rate figure as if it supports it. This is assumption
+everywhere. The live Razorpay test-mode work (30 real entities read, 23 real Orders fired, plus the webhook
+loop — entry 25) is an **integration proof only** and must never appear beside a recovery-rate figure as if it supports it. This is assumption
 A30 and it is load-bearing for honesty.
 
 ### 3.6 The LLM makes no decisions
@@ -106,33 +109,33 @@ the decision loop.** It is the single strongest answer to the "AI judgment" crit
 
 | | baseline | +compliance aware | adaptive | adaptive hedged |
 |---|---|---|---|---|
-| recovery rate (recoverable) | 56.9% | 63.7% | **78.0%** | 74.4% |
-| recovery rate (all) | 51.5% | 57.7% | **70.6%** | 67.3% |
-| value recovered | ₹9.39M | ₹19.07M | **₹21.30M** | ₹20.80M |
-| wasted attempt rate | 0.8% | **0.8%** | 1.9% | 1.4% |
-| median days to recovery | **1.0** | **1.0** | 3.2 | **1.0** |
-| non-compliant proposals | 22.8% | **0%** | **0%** | **0%** |
+| recovery rate (recoverable) | 65.9% | 69.5% | **86.0%** | 81.8% |
+| recovery rate (all) | 59.7% | 63.0% | **77.9%** | 74.1% |
+| value recovered | ₹19.28M | ₹25.34M | **₹30.13M** | ₹28.95M |
+| wasted attempt rate | **0.8%** | **0.8%** | 2.1% | 1.4% |
+| median days to recovery | **1.0** | **1.0** | 3.0 | **1.0** |
+| non-compliant proposals | 11.7% | **0%** | **0%** | **0%** |
 
-**Additional recovered by adaptive vs baseline: ₹11,914,526.**
+**Additional recovered by adaptive vs baseline: ₹10,850,050.**
 
 **Lift decomposition** (this exists because "adaptive escalates above the OTP ceiling" is a
 *compliance check*, not intelligence — a fair reviewer would call that out, so we isolated it):
 
 | source of gain | recovery rate | value |
 |---|---|---|
-| compliance awareness alone | +12.0% | +103.1% |
-| retry timing alone | +22.4% | +11.7% |
-| total | +37.1% | +126.9% |
+| compliance awareness alone | +5.3% | +31.4% |
+| retry timing alone | +23.9% | +18.9% |
+| total | +30.5% | +56.3% |
 
-**Sensitivity: 19/19 scenarios positive**, +10.3% to +54.7%, median +33.1%. Conservative headline
-**+12.5%** vs strongest baseline.
+**Sensitivity: 19/19 scenarios positive**, +6.4% to +50.2%, median +28.4%. Conservative headline
+**+8.7%** vs strongest baseline.
 
-**Red team: 5 AI-generated attacks, 0 landed**, weakest **+10.8%** — consistent with, not below, the
-+10.3% floor of the current hand-written sensitivity sweep. (`docs/build_log.md` entry 15 records an
-earlier run finding +5.7% against an 18-scenario sweep floor of +10.0% — a different sweep size, so
-not directly comparable to this run. The red team is LLM-generated and its output is not guaranteed
-stable run to run. Re-verify with `python -m eval.redteam` before quoting a specific number in the
-video or form — don't just copy this one.)
+**Red team: 6 AI-generated attacks, 0 landed**, weakest **+3.9%** — below the +6.4% floor of the
+hand-written sweep, so the model again found a harder case than we wrote ourselves. Its hardest attack
+(`compliance_asymmetry_neutralised_low_ticket`) deliberately targets the compliance asymmetry that
+shrank in entry 26, which is a sharp piece of adversarial reasoning. The red team is LLM-generated and
+its output is not stable run to run — re-verify with `python -m eval.redteam` before quoting a specific
+number in the video or form rather than copying this one.
 
 **Throughput (measured, not estimated): 65,268 decisions/sec** single unoptimised core including
 compliance checks. All-India UPI mandate execution averages ~312/sec, so one core is ~200× the
@@ -347,7 +350,7 @@ The most important artifact after the code. The strongest entries:
 
 1. **The frozen config is sacred.** Change it only with a CHANGELOG entry stating whether results
    were already seen.
-2. **Report the conservative number** (+12.5%), never the flattering one.
+2. **Report the conservative number** (+8.7%), never the flattering one.
 3. **Keep the metric we lose on.** It's why the rest is believable.
 4. **The LLM never decides.** It narrates, attacks, and translates — always mechanically validated.
 5. **The repo must be public before 5 September** or none of this is readable.
