@@ -277,6 +277,25 @@ def _live_samples() -> str:
     for line in path.read_text().splitlines():
         r = json.loads(line)
         esc = " esc" if r.get("escalation_action") else ""
+        meta = r["metadata"]
+
+        # The action line. A compliant retry fired a real Razorpay Order and names its id, so a
+        # reader can verify it against the API. An escalation fired nothing -- and says so, because
+        # "no action exists for this mandate" is what proves the compliance floor, not the label.
+        if meta.get("action_fired"):
+            action = (
+                f'<div class="chk">action fired · order '
+                f'<b>{html.escape(str(meta.get("retry_order_id", "")))}</b> · '
+                f'receipt {html.escape(str(meta.get("retry_receipt", "")))}</div>'
+            )
+        elif r.get("escalation_action"):
+            action = (
+                '<div class="chk">no retry fired — above the ₹15,000 no-OTP ceiling, so the '
+                'compliant move is re-authentication, not an auto-retry that must be refused</div>'
+            )
+        else:
+            action = ""
+
         out += (
             f'<div class="rec"><div class="head">'
             f'<span class="tag live">live_test_mode</span>'
@@ -285,7 +304,8 @@ def _live_samples() -> str:
             f'<span class="amt">{_inr(r["amount_inr"])}</span></div>'
             f'<div class="why">{html.escape(r["rule_description"])}</div>'
             f'<div class="chk">razorpay id {html.escape(r["mandate_id"])} · '
-            f'decline code {html.escape(r["metadata"]["razorpay_error_reason"])}</div></div>'
+            f'decline code {html.escape(meta["razorpay_error_reason"])}</div>'
+            f'{action}</div>'
         )
     return out
 
@@ -438,8 +458,13 @@ Narration is generated after the fact and never influences a decision.</p>
 
 <h2>Audit trail — real Razorpay test-mode API</h2>
 <p class="sub">Same policy engine, same compliance invariants, same audit schema — driven by entities
-created and re-fetched through Razorpay's live test-mode API, with documented decline codes mapped
-onto the failure taxonomy. Integration proof only; excluded from every figure above.</p>
+read back from Razorpay's live test-mode API, with documented decline codes mapped onto the failure
+taxonomy. <b>Decisions here don't just get recorded, they execute:</b> a compliant retry creates a real
+Razorpay Order naming the original mandate and the rule that decided it, while an above-ceiling case
+escalates and fires nothing at all — the compliance floor proven by what doesn't exist, not by a label.
+The Order is created immediately rather than at the scheduled retry time (a script can't idle for a
+T+7 cadence), and creating a payment intent is not the same as collecting money. Integration proof
+only; excluded from every figure above.</p>
 {_live_samples()}
 
 <h2>Honest limits</h2>

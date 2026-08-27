@@ -896,3 +896,60 @@ than an audit that just re-reads the invariants back and says they're fine. The 
 project has practiced all along — treat your own claims adversarially — is the reason a real,
 previously-invisible bug (A36's missing rebaseline) got caught before submission instead of by a
 reviewer running `git log` on the config file.
+
+## 25. The policy could decide, but it had never actually done anything
+
+**What happened.** `HANDOFF.md` had carried the same line in its "what's left" list for days: *"the
+policy schedules a retry and nothing ever fires it."* Every decision in the live batch was real —
+real entities, real compliance checks, real audit records — and every one of them was still only an
+*intent*. Nothing downstream of a `retry_scheduled` decision ever caused anything to happen. The
+system had a complete decision loop and an empty action loop, and the gap was easy to miss precisely
+because everything around it worked.
+
+**What firing a retry actually means here.** Razorpay Payment Links have no native retry primitive.
+The first implementation created a second Payment Link — which worked, and four fired that way,
+verifiable by id. It got replaced, for a reason that only surfaced by building it: a Payment Link is a
+payment intent *plus* a hosted page and a customer-facing URL. An automatic retry doesn't contact the
+customer, so modelling one as a customer-facing link overstated what the action was. An **Order** is
+the payment-intent primitive on its own — amount, merchant receipt, status — and is the honest match.
+The retry now creates an Order carrying the original mandate's id, the attempt number, the rule id
+that decided it, and the `scheduled_retry_at` the policy computed, then re-fetches it to confirm it
+exists rather than trusting the create response.
+
+**A second bug, found on the way in.** `live_batch.py` computed its compliance checks and then never
+read them. Every decision was recorded exactly as the policy proposed, compliant or not — which is
+entry 10's "logged but not enforced" bug, reintroduced in the live-integration path years of build-log
+discipline later, in the one file where it would have mattered most. It had been harmless only because
+nothing acted on decisions; wiring up real execution would have made it a live defect that fired
+legally-refusable retries against real amounts. The veto is now shared with `eval/harness.py`,
+`_fire_retry_action` is only ever reachable through it, and five regression tests pin the behaviour.
+
+**A platform limit, found by exhausting it.** Firing retries doubled the write volume per case, which
+first tripped the rate limiter (pacing raised 1.5s → 4.0s) and then hit something harder: *"test mode
+limit of 30 reached for payment_link."* A lifetime cap, not a rate limit — verified by paging the
+account and counting exactly 30. That made a create-first batch permanently un-runnable on this
+account, which would have made the whole thing undemonstrable on camera.
+
+The fix turned out to be the better design anyway. **A recovery system doesn't create the failed
+payment it's recovering — it reacts to one that already exists.** The batch now reads real entities off
+the account instead of manufacturing its own subjects, which is both more faithful and idempotent:
+re-runnable indefinitely, on whatever the account actually holds. The quota forced a question whose
+honest answer was already the right one.
+
+**Verified, both directions.** Below-ceiling amounts fire real Orders — six of them, each confirmed by
+independent re-fetch, carrying receipts like `retry-2-plink_TUkx9KUDNPM0zp` and the deciding rule id in
+their notes. The ₹41,000 case — above the ₹15,000 no-OTP ceiling (A6) — **escalated and fired exactly
+nothing**. That's the veto proven by absence rather than by label: not "we recorded an escalation," but
+"no Order exists for that mandate, and you can check."
+
+**What this does not prove, stated plainly.** The Order is created immediately rather than at
+`scheduled_retry_at`, because a script can't idle for a T+7 cadence — that gap is recorded in the
+record's own metadata, not hidden. And creating a payment intent is not collecting money: completing a
+checkout still needs a human (entry 4). This proves the decision reaches the API as a real action. It
+does not prove the retry succeeds, and the report says so.
+
+**What it demonstrates.** Closing the last gap between "the system decided" and "the system did," and
+finding two real defects in the process — one dormant bug that would have gone live with the feature,
+and one platform constraint that could only be discovered by actually consuming it. The discipline that
+mattered was refusing to let "it works" stand in for "I checked both branches": the escalation case
+firing nothing is the half that's easy to skip and the half that actually proves the compliance floor.

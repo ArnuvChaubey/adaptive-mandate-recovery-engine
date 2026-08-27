@@ -309,8 +309,12 @@ The most important artifact after the code. The strongest entries:
    out" — draw from build log #4, #13, #14, #19.
 
 ### Optional, genuinely valuable
-- **Execute a real recovery action** — the policy schedules a retry and nothing ever fires it. In
-  test mode a retry could genuinely be attempted. ~1h. Highest remaining demo value.
+- ~~**Execute a real recovery action**~~ — **DONE**, see build log #25. A compliant retry now fires a
+  real Razorpay Order carrying the original mandate id, attempt number, and deciding rule id; the
+  above-ceiling case escalates and fires nothing. Found two real bugs on the way: the live path
+  computed compliance checks and never read them (entry 10's bug, reintroduced), and test mode caps
+  Payment Links at 30 for the account's lifetime, which forced the batch to read existing entities
+  rather than create its own — the more faithful design anyway.
 - **Subscription lifecycle** (`pending → halted`) — routed around due to the platform bug. Worth one
   more attempt. ~1h, may fail again.
 - **Time-to-recovery as a swept first-class metric** — it's where hedged wins decisively and it isn't

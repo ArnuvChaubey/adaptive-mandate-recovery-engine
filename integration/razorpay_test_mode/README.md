@@ -20,6 +20,28 @@ into the same `audit/` schema as the simulator, tagged `source: live_test_mode`.
 Milestone 6 (Day 10): full ~15-20 case scripted batch run, timed close to the video-recording date to respect
 the 3-day test-mode token window (A29).
 
+## The policy now fires real actions, not just records intent
+
+Until build log entry 25, `live_batch.py` decided and recorded but never *acted* — a `retry_scheduled`
+decision produced a log line and nothing else. It now executes: a compliant retry creates a real new
+Payment Link via the API, tagged in its `notes` with the original link's id, the attempt number, the
+rule id that decided it, and the `scheduled_retry_at` the policy computed. The new entity is re-fetched
+to confirm it exists, and its id lands in the decision record's metadata, so any reader can verify the
+action independently against Razorpay's API rather than trusting the log.
+
+Two boundaries stated rather than blurred:
+
+- **The retry is created immediately, not at `scheduled_retry_at`.** A script can't idle for a T+7
+  cadence, so the gap between "when the policy said to retry" and "when the entity was created" is
+  recorded in the record's own metadata. A production system would schedule it; this one demonstrates it.
+- **Firing a retry is not the same as recovering money.** The new link is a real, payable entity, but
+  completing its checkout still needs a human (entry 4). This proves the decision reaches the API as a
+  real action; it does not prove the retry succeeds.
+
+Entry 25 also found that this file computed compliance checks and then never read them — entry 10's
+"logged but not enforced" bug, reintroduced in the live path. The veto is now applied here too, shared
+with `eval/harness.py`, and a decision only reaches the fire step after passing it.
+
 ## Day 2 finding: subscription card tokenization failed server-side in test mode
 
 Multiple attempts to authenticate a test Subscription's card (via the hosted `short_url` checkout) failed
