@@ -35,9 +35,9 @@ Built as a submission for Razorpay's AI Buildathon Track 03 (AI Revenue Recovery
 | Commits | 36 |
 | Tracked files | 96 |
 | Python | 6,551 lines |
-| Tests | **130 passing** (`python -m pytest tests/ -q`) |
+| Tests | **134 passing** (`python -m pytest tests/ -q`) |
 | Assumptions | 36 documented (A4 REFUTED) |
-| Build-log entries | 26 |
+| Build-log entries | 27 |
 | Sensitivity scenarios | 19 + 5 AI-generated attacks (redteam count varies run to run) |
 | Frozen config hash | `eaf9126d9797632f19829f6374e10806ca066b2d` |
 | Working tree | clean, committed, **not yet pushed** |
@@ -137,9 +137,14 @@ shrank in entry 26, which is a sharp piece of adversarial reasoning. The red tea
 its output is not stable run to run — re-verify with `python -m eval.redteam` before quoting a specific
 number in the video or form rather than copying this one.
 
-**Throughput (measured, not estimated): 65,268 decisions/sec** single unoptimised core including
-compliance checks. All-India UPI mandate execution averages ~312/sec, so one core is ~200× the
-country's average load. The policy engine is not the bottleneck.
+**Throughput: ~133,000 decisions/sec** median, single unoptimised core, compliance checks included
+(Apple Silicon, CPython 3.14). **Reproduce it: `python -m eval.benchmark`.** Until entry 27 this line
+quoted 65,268/sec as "measured, not estimated" with no benchmark anywhere in the repo — an
+unreproducible number in a project whose entire argument is that you can re-run everything. The
+benchmark now exists, shares the exact veto and invariant code the harness uses (pinned by
+`tests/test_benchmark_fidelity.py`), and prints the machine alongside the number. Quote it *with* the
+hardware or not at all. Context: all-India UPI mandate execution averages ~312/sec, so the policy
+engine is not the bottleneck — but that was never in doubt, and it is the least interesting claim here.
 
 **Where it loses:** adaptive wastes more attempts than baseline in most scenarios. All of it is in
 `insufficient_funds` — waiting for a likely payday wins for pattern-followers and fires into drained

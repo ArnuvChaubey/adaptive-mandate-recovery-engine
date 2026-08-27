@@ -1029,3 +1029,50 @@ between them is where this project keeps finding its own bugs — twice now by t
 that the discipline holds under pressure: this surfaced nine days before submission, while writing
 *promotional* material, and it cost a third of the headline number. Reporting +8.7% because it is true
 is the entire argument for believing anything else here.
+
+## 27. Writing the benchmark found the bug in the benchmark
+
+**What happened.** `HANDOFF.md` claimed **65,268 decisions/sec, "measured, not estimated."** There was
+no benchmark anywhere in the repository. The number may well have been measured once, in a terminal,
+by a person who then closed the terminal — but in a project whose whole argument is *re-run everything
+yourself*, a number nobody else can reproduce is worse than no number at all. It was also the single
+most falsifiable claim in the submission, in exchange for an assertion nobody was disputing: yes, a
+rules engine is fast.
+
+**The interesting part is not the benchmark.** It is what happened when a test was written to check
+the benchmark was measuring the right thing.
+
+`build_states` generated inputs by indexing three lists with the loop counter: six amounts, three
+product types, six failure classes. Those lengths share factors, so the three axes never varied
+independently — the ₹41,000 EMI case, the *only* combination that should reach the over-ceiling
+escalation branch, always landed on the same failure class. That class happened to be unrecoverable,
+and rule ADAPT-001 short-circuits unrecoverable failures before the ceiling check ever runs.
+
+**So the escalation branch was never executed, and the benchmark was timing only the cheap paths.** It
+would have reported a number that was too high, forever, and nothing about it would have looked wrong.
+A performance claim can become a lie without anyone editing it.
+
+`tests/test_benchmark_fidelity.py` caught it on the first run, because it asserts a property rather
+than a value: the benchmark must produce at least three distinct decision types. It produced two.
+Fixed by building states from the explicit cartesian product, deterministically shuffled so that a
+prefix of any length stays representative — the second version of the same bug, caught by the same
+test, when product ordering meant a short run only saw small amounts.
+
+**A third thing, fixed on the way.** The benchmark needed the veto, which by then existed in two
+places: inline in `eval/harness.py` and as `apply_compliance_veto` in the live batch. Adding a third
+copy to time it would have been the worst possible version — a benchmark measuring a code path that
+resembles production rather than being it. The veto moved into `compliance/invariants/rules.py`, where
+enforcement belongs, and all three callers now share one function. Given this exact wiring has been
+got wrong twice already (entry 10 executed non-compliant retries; entry 25 never read the verdicts),
+having one implementation instead of three is worth more than the benchmark that prompted it.
+
+**The honest number.** ~133,000 decisions/sec median on Apple Silicon under CPython 3.14, roughly
+7.5µs per decision, compliance checks included — reproducible via `python -m eval.benchmark`, which
+prints the machine alongside the figure because a throughput number without hardware is not a claim.
+It is *higher* than the 65,268 it replaces, which is its own small lesson: the unreproducible number
+was not being generous to itself, it simply could not be checked in either direction.
+
+**What it demonstrates.** That the fastest way to find out whether a measurement is meaningful is to
+try to test it. Also the narrower engineering point: benchmarks are code, they carry bugs like code,
+and the bugs are unusually dangerous because the output is a plausible number rather than a crash. The
+property worth asserting was never "is it fast" — it was "is it measuring all of the thing."

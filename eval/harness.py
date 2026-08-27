@@ -21,7 +21,12 @@ from audit.decision_log_schema.records import (
     EscalationAction,
     Source,
 )
-from compliance.invariants.rules import ProposedDecision, evaluate_all, rbi_category_for
+from compliance.invariants.rules import (
+    ProposedDecision,
+    apply_compliance_veto,
+    evaluate_all,
+    rbi_category_for,
+)
 from eval.metrics.definitions import AttemptOutcome, MandateOutcome
 from policies.policy_interface.base import MandateView, Policy, PolicyState
 from simulator.balance_evolution.process import simulate_balance
@@ -207,10 +212,11 @@ def run_policy_on_batch(
             # harness refuses to execute a non-compliant retry regardless of what the policy wanted.
             # The proposal is still recorded, so a policy that repeatedly proposes illegal actions
             # is visible in the audit trail rather than quietly corrected.
-            blocked = decision.decision_type == DecisionType.RETRY_SCHEDULED and not compliant
-            recorded_type = (
-                DecisionType.BLOCKED_BY_COMPLIANCE if blocked else decision.decision_type
-            )
+            #
+            # Shared with the live batch and the benchmark rather than reimplemented per caller --
+            # this exact wiring has been got wrong twice (entries 10 and 25).
+            recorded_type = apply_compliance_veto(decision.decision_type, checks)
+            blocked = recorded_type == DecisionType.BLOCKED_BY_COMPLIANCE
 
             log.append(
                 DecisionRecord(

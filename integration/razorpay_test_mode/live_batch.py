@@ -56,7 +56,7 @@ from audit.decision_log_schema.records import (
     DecisionType,
     Source,
 )
-from compliance.invariants.rules import ProposedDecision, evaluate_all
+from compliance.invariants.rules import ProposedDecision, apply_compliance_veto, evaluate_all
 from integration.razorpay_test_mode.client import get_client
 from integration.razorpay_test_mode.failure_mapping import (
     TEST_CARDS_BY_ERROR_REASON,
@@ -111,23 +111,6 @@ def _amount_type_for(amount_inr: float) -> AmountType:
     if amount_inr <= 25_000:
         return AmountType.SIP_INVESTMENT
     return AmountType.EMI
-
-
-def apply_compliance_veto(decision_type: DecisionType, checks: list) -> DecisionType:
-    """The same veto `eval/harness.py` applies, extracted so both paths can share it and a test can
-    pin it directly.
-
-    Entry 25 found this file computed `checks` and then never consulted them -- it recorded whatever
-    the policy proposed regardless of whether compliance passed. That's entry 10's bug
-    (`docs/build_log.md`), reintroduced in the live-integration path instead of the original harness.
-    A compliance floor that's computed but not read is not enforced; this function is what makes it
-    enforced here too, and `_fire_retry_action` is only ever called with its output, never with the
-    policy's raw proposal.
-    """
-    compliant = all(c.passed for c in checks)
-    if decision_type == DecisionType.RETRY_SCHEDULED and not compliant:
-        return DecisionType.BLOCKED_BY_COMPLIANCE
-    return decision_type
 
 
 def _fire_retry_action(

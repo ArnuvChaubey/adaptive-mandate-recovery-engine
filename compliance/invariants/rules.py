@@ -128,6 +128,30 @@ def check_otp_ceiling(proposed: ProposedDecision, config: dict) -> ComplianceChe
     )
 
 
+def apply_compliance_veto(decision_type, checks: list):
+    """The veto itself: a non-compliant retry becomes a blocked one, and nothing else changes.
+
+    This lives here rather than in any one caller because it is the enforcement step, and it has now
+    been got wrong once in each direction. Entry 10: the harness computed verdicts and executed the
+    retry anyway. Entry 25: the live-integration path computed them and never read them at all. Both
+    times the checks were correct and the wiring was not, so the single most important property of
+    this project -- that a compliance floor is *enforced*, not merely recorded -- depended on each
+    caller remembering to apply it identically.
+
+    Three callers now share this exact function: `eval/harness.py`, the live batch, and
+    `eval/benchmark.py`. That last one matters for an unobvious reason -- a benchmark that measures a
+    slightly different code path than production measures nothing useful.
+
+    Deliberately narrow: only a RETRY_SCHEDULED decision can be vetoed. An escalation or a stop was
+    never an auto-debit, so a failing check must not relabel it.
+    """
+    from audit.decision_log_schema.records import DecisionType
+
+    if decision_type == DecisionType.RETRY_SCHEDULED and not all(c.passed for c in checks):
+        return DecisionType.BLOCKED_BY_COMPLIANCE
+    return decision_type
+
+
 ALL_INVARIANTS = (check_notification_timing, check_otp_ceiling)
 
 
