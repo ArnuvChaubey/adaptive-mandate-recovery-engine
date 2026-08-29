@@ -473,7 +473,7 @@ only; excluded from every figure above.</p>
 <li>Not benchmarked against Razorpay's Intelligent Retry Engine; it exposes no public callable interface.</li>
 <li>The live batch is 9 real entities. A scripted completed-payment batch is not possible on a standard test account.</li>
 <li>The escalation response rate (A35) carries the ₹ headline and has no public source. It is applied identically to every policy so it cannot manufacture lift, and it is swept — but attack it first.</li>
-<li>Real production retry cadence is unpublished (A1). The baseline is an informed construction, and the headline is reported against the <i>strongest</i> baseline we could build.</li>
+<li>The documented cadence is cited, not assumed (A1: T+1/T+2/T+3, cards and UPI). What is unknown is whether production behaviour matches the documented default (A2), so the headline is still reported against the <i>strongest</i> baseline we could build, not the documented one.</li>
 </ul>
 
 <footer>Generated {generated} · frozen config {commit} · seeds {len(seeds)} × {n_mandates:,} mandates<br>

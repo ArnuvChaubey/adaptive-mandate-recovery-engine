@@ -22,9 +22,16 @@ retry_policy_shared:
     source: "Razorpay docs — subscription moves to `halted` after 4 failed attempts"
 
   card_retry_cadence_days:
-    # Only "We automatically retry the payment on the following day" is documented (cards). The
-    # multi-attempt spacing is unpublished for both cards and UPI -- this is A1, the project's
-    # highest-risk assumption, and it sits on the BASELINE side of every lift number.
+    # RESOLVED 2026-08-28 (A1 downgraded from ASSUMPTION to FACT for cards and UPI). Razorpay's
+    # Payment Retries docs DO publish the multi-attempt cadence, for both instruments:
+    # "we automatically reattempt the charge on T+1 day. If the charge fails again, we automatically
+    # reattempt the charge two more times on T+2 and T+3 days, respectively" -- then `halted`.
+    # 1 initial charge + 3 retries = the 4-attempt cap already recorded as A20, so the two documented
+    # facts cross-check. Emandate is explicitly different (bank-confirmation driven, >24h).
+    #
+    # `value: [1]` is these values as GAPS (see policies/baseline_policy/policy.py), so a repeated
+    # 1-day gap lands attempts on T+1, T+2, T+3 -- exactly the documented schedule. The committed
+    # value was right; it is now cited rather than assumed.
     #
     # Corrected 2026-08-25: `[1]` was originally chosen as the "most retry-friendly" reading of the
     # brief. Measurement showed the opposite -- in an insufficient-funds-dominated world, retrying
@@ -36,8 +43,10 @@ retry_policy_shared:
     # lift is reported against the STRONGEST baseline, not this one.
     value: [1]
     plausible_alternatives:
-      - [1]           # documented reading: retry the following day, every time
-      - [1, 2, 3]     # T+1/T+2/T+3, the widely-repeated (but unverifiable) schedule
+      - [1]           # THE DOCUMENTED SCHEDULE: 1-day gap each time -> T+1, T+2, T+3
+      - [1, 2, 3]     # widening gaps -> T+1, T+3, T+6. Previously mislabelled here as
+                      # "T+1/T+2/T+3"; that was a misreading of the gap semantics, corrected
+                      # 2026-08-28. Kept as a plausible alternative, not as a documented one.
       - [1, 3, 7]     # escalating backoff
       - [3, 7, 14]    # spread backoff -- empirically the strongest baseline
       - [7, 7, 7]     # weekly

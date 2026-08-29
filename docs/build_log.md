@@ -1076,3 +1076,55 @@ was not being generous to itself, it simply could not be checked in either direc
 try to test it. Also the narrower engineering point: benchmarks are code, they carry bugs like code,
 and the bugs are unusually dangerous because the output is a plausible number rather than a crash. The
 property worth asserting was never "is it fast" — it was "is it measuring all of the thing."
+
+## 28. The project's biggest stated weakness wasn't real, and finding that out was luck
+
+**What happened.** Somebody asked a plain question — *are Razorpay's current retry policies public?* —
+and rather than answer from the assumption table, I re-fetched the docs. Razorpay publishes the full
+multi-attempt cadence, for cards **and** UPI:
+
+> "we automatically reattempt the charge on T+1 day. If the charge fails again, we automatically
+> reattempt the charge two more times on T+2 and T+3 days, respectively."
+
+Then `halted`. One initial charge plus three retries — which cross-checks A20's documented 4-attempt
+cap exactly. Emandate is separately documented as a different, bank-confirmation-driven model.
+
+**A1 said the opposite.** *"Live-fetched Razorpay docs confirm only 'following day' for cards; no
+public multi-attempt cadence found."* Rated LOW confidence, HIGH simulator impact, **HIGHEST challenge
+risk** — with a note at the top of `assumptions.md` calling it the one input on the baseline side with
+no public source, the thing the entire lift claim rests on. `docs/research_matrix.md` went further and
+described the docs as *"vague, not T+1/T+2/T+3"*, which is precisely backwards: they are exactly
+T+1/T+2/T+3, and say so in those characters.
+
+The original research missed a section. Everything downstream inherited the miss, into five files.
+
+**The committed value was right anyway, which is the lucky part.** Cadence values are *gaps* between
+attempts (`policies/baseline_policy/policy.py`), so `value: [1]` — a repeated one-day gap — lands
+attempts on T+1, T+2, T+3. The frozen config had been encoding the documented schedule since day one,
+described in its own comment as an assumption. **No number moved, and none could have.**
+
+**A second error surfaced inside the first.** The comment on the `[1, 2, 3]` alternative called it
+"T+1/T+2/T+3, the widely-repeated (but unverifiable) schedule." Under gap semantics `[1, 2, 3]`
+produces T+1, **T+3, T+6** — a different schedule. Two adjacent lines in the same frozen file
+described two different cadences by the same name, and nobody caught it because nobody re-derived the
+arithmetic after writing it.
+
+**What changes, and what pointedly does not.** A1 is re-rated from ASSUMPTION/HIGHEST-risk to
+**FACT/LOW-risk**, quoted with its source. The mislabelled comment is fixed. Five files that repeated
+"the cadence is unpublished" are corrected. The headline stays reported against the *strongest*
+constructed baseline (`[3, 7, 14]`), not the documented one — because A2 remains untouched and is now
+the load-bearing caveat: Razorpay's Intelligent Retry Engine explicitly critiques fixed-interval
+retry, so their **production** behaviour is plausibly more sophisticated than their own documented
+default. Documented ≠ deployed. The conservative headline is still +8.7%.
+
+**Why this is a worse process failure than it looks.** The claim was not a guess — it was researched,
+sourced, dated, and rated. It carried a citation to the exact page that refutes it. Confidence ratings
+and evidence columns make a table *look* audited, and this one was audited into a false result that
+then propagated. The only reason it got caught eight days before submission is that somebody asked a
+beginner's question about something everybody had stopped questioning.
+
+**What it demonstrates.** Re-verify the things you are most confident you already checked, especially
+the ones you have written down as settled — a documented assumption is exactly the kind that stops
+getting re-read. Also: the honest response to finding your headline weakness was never real is to say
+so plainly, not to quietly enjoy the upgrade. A1 was the answer to "what's the weakest part of this?"
+for the entire project. That answer is now A35 and A13, and the interview answer has to change with it.

@@ -1,14 +1,17 @@
 # assumptions.md
 
 Every assumption below load-bears on either simulator behavior or evaluation validity. None are padding.
-**A1 is the highest Challenge Risk item in this table** — the entire baseline-vs-adaptive recovery-lift claim
-depends on it, and it is the one input on the baseline side with no public source.
+**A1 was the highest Challenge Risk item in this table until 2026-08-28**, when a pre-submission
+re-verification found the cadence is in fact published for both cards and UPI. It is now a cited FACT,
+and the committed baseline value turned out to match the documented schedule exactly. The highest
+remaining risks are A35 (escalation response rate, which carries the ₹ headline and has no public
+source) and A13 (individual adherence to the population-level payday pattern).
 
 Legend: Confidence and Challenge Risk are rated LOW / MEDIUM / HIGH. Simulator Impact is NONE / LOW / MEDIUM / HIGH.
 
 | ID | Statement | Evidence | Confidence | Simulator Impact | Challenge Risk |
 |---|---|---|---|---|---|
-| A1 | Card/UPI retry spacing beyond "retries the following day" follows a conservatively-biased, retry-friendly assumed schedule | Live-fetched Razorpay docs confirm only "following day" for cards; no public multi-attempt cadence found | LOW | HIGH — entire baseline policy timing | **HIGHEST** |
+| A1 | ~~Card/UPI retry spacing is an unsourced assumption~~ **RESOLVED 2026-08-28 — now a FACT.** Razorpay documents the full multi-attempt cadence for cards *and* UPI | [Razorpay Payment Retries docs](https://razorpay.com/docs/payments/subscriptions/payment-retries/): *"we automatically reattempt the charge on T+1 day. If the charge fails again, we automatically reattempt the charge two more times on T+2 and T+3 days, respectively"*, then `halted`. Cross-checks A20 (1 charge + 3 retries = the 4-attempt cap). Emandate is documented as a different, bank-confirmation-driven model | **HIGH** | HIGH — entire baseline policy timing | **LOW** — directly quotable, and the committed value matches it |
 | A2 | Razorpay's actual production retry logic is at least as unsophisticated as our documented baseline (we're not attacking a strawman) | Contradicted in part by Razorpay's own Intelligent Retry Engine (beta, FTX 2026), which already critiques fixed-interval retry | LOW | Low direct, high narrative | HIGH |
 | A3 | Emandate bank-holiday shift logic (T-1, T-3) generalizes to holiday-calendar handling across instruments | Directly documented for Emandate only | MEDIUM | MEDIUM | MEDIUM |
 | A4 | ~~An undelivered pre-debit notification legally auto-blocks the debit~~ **REFUTED 2026-08-25** — the framework imposes a *send* obligation only | RBI Digital Payments E-mandate Framework 2026, Clause 6(a): *"An issuer shall send a pre-transaction notification to the customer, at least 24 hours prior to the actual charge / debit."* No delivery-confirmation requirement and no auto-block clause exists. Confirmed against two independent analyses of the framework text | **REFUTED** | Was HIGH — now replaced by A5 (timing invariant) and A34 (behavioural effect) | Resolved — the claim is no longer made anywhere in the project |
@@ -59,6 +62,23 @@ problem. If it holds across the swept range, that is the actual evidence.
 Per the anti-circularity requirement: `config/sim_params.yaml` must be frozen and committed *before* the adaptive
 policy is evaluated against it. Any change made after seeing evaluation results is logged here with date, what
 changed, why, and an explicit statement of whether results were already observed before the change.
+
+**2026-08-28 (eighth entry) — COMMENT-ONLY CHANGE + assumption re-rating. No value moved.**
+Pre-submission re-verification of A1 (the project's stated highest-risk assumption) found that
+Razorpay *does* publish the multi-attempt retry cadence, for cards and UPI both: T+1, T+2, T+3, then
+`halted`. The assumption table had claimed "no public multi-attempt cadence found," which was false as
+of this date and would have been visible as stale research to any reviewer who works there.
+
+Two corrections followed. A1 is re-rated from LOW confidence / HIGHEST challenge risk to **FACT /
+LOW risk**, quoting the docs. And a comment in `sim_params.yaml` that labelled `[1, 2, 3]` as
+"T+1/T+2/T+3" was wrong on its own terms: the values are *gaps* (see
+`policies/baseline_policy/policy.py`), so `[1, 2, 3]` produces T+1/T+3/T+6, while a repeated `[1]` is
+what actually yields T+1/T+2/T+3.
+
+**Results were already observed. No number changed and none could:** `value: [1]` is untouched, and
+the conservative headline is reported against `[3, 7, 14]` regardless. The effect is that the
+baseline's timing stops being an assumption and becomes a citation — the project's weakest link got
+stronger without any figure moving. See docs/build_log.md entry 28.
 
 **2026-08-27 (seventh entry) — CODE CORRECTNESS FIX, not a config change.** `config/sim_params.yaml`
 is untouched. Both the adaptive policy and `compliance/invariants/rules.py` compared this project's

@@ -294,7 +294,7 @@ for omission as well as invention. ([build log, entry 15](docs/build_log.md))
 - **The biggest single-parameter risk is A35**, the escalation response rate, which carries the ₹
   headline and has no public source. It is applied identically to every policy so it cannot
   manufacture lift, and it is swept — but it is the number to attack first.
-- **The retry cadence of real production systems is unpublished** (A1). The baseline is an informed
+- **The documented retry cadence is now cited, not assumed** (A1, resolved 2026-08-28: T+1/T+2/T+3 for cards and UPI). What remains unknown is whether Razorpay's *production* logic matches its own documented default (A2). The baseline is a faithful implementation of the documented schedule, and
   construction, not a reproduction of Razorpay's behaviour.
 
 ---

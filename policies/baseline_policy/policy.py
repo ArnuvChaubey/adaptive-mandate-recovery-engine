@@ -1,14 +1,15 @@
 """Baseline policy -- documented halt condition, conservatively-assumed cadence.
 
-**Naming honesty (see A1, A2).** This is not "Razorpay's retry policy." Only the halt condition is
-documented: after 4 failed attempts a subscription moves to `halted`. The *spacing* between those
-attempts is not published anywhere for cards or UPI -- the docs say only "We automatically retry the
-payment on the following day."
+**Naming honesty (see A1, A2).** This is not "Razorpay's retry policy" -- but as of 2026-08-28 the
+cadence it implements is the *documented* one. Razorpay publishes both halves: a subscription moves to
+`halted` after 4 failed attempts (A20), and the spacing is "T+1 day... two more times on T+2 and T+3
+days" for cards and UPI alike. A repeated 1-day gap, which is what `[1]` means here, lands attempts on
+exactly those days.
 
-So the cadence here is an ASSUMPTION, and it is deliberately biased toward the most retry-friendly
-plausible interval (retry next day, every time). If that assumption is wrong, the error makes the
-baseline *stronger* than reality, which makes any measured adaptive lift harder to achieve rather
-than easier. Erring in the direction that hurts our own headline number is the point.
+What this policy still is NOT is a claim about Razorpay's *production* logic. A2 covers that: their
+Intelligent Retry Engine explicitly critiques fixed-interval retry, so real behaviour is plausibly
+more sophisticated than the documented default. This is the documented default, faithfully
+implemented -- not a strawman, and not an assertion about what actually runs in production.
 
 This policy ignores failure class, time of day, notification state, and balance -- it retries on a
 fixed schedule until the cap. That is precisely the behaviour Razorpay's own Intelligent Retry Engine
