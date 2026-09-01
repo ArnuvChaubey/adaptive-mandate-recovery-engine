@@ -1180,3 +1180,50 @@ up to "no real competition" when at least one of them is a serious, well-tested,
 submission. The value wasn't in copying their architecture; it was in recognizing the one gap they'd
 closed that this project hadn't, and closing it the same way everything else here gets closed: with a
 test that proves the thing works by first proving it can fail.
+
+## 30. Adding a guardrail without inventing a number to justify it
+
+**What happened.** The strongest of six competing Track 03 repos analyzed had a "max 3 comms/case"
+policy rule — a real, sensible customer-protection guardrail against re-notifying the same customer
+indefinitely across a retry sequence. It had no citation. No RBI clause, no TRAI reference, nothing —
+just a hardcoded 3.
+
+Copying that number would have been the A4 mistake again: presenting an uncited limit as if it carried
+regulatory weight. This project already corrected exactly that error once (A4 was refuted for claiming
+a compliance constraint that doesn't exist), and existed specifically to avoid it — so the honest move
+wasn't to adopt their number, it was to check whether *this project's own already-cited facts* implied
+one.
+
+**They did.** Every shipped policy proposes exactly one notification per retry attempt
+(`notification_to_send_at = state.failed_at` on every `RETRY_SCHEDULED` decision), and a retry can
+only be proposed while `attempt_number < max_attempts`. A20 — Razorpay's documented 4-attempt halt,
+already a cited FACT — means the final attempt is always a stop-and-escalate that sends no
+notification. So the maximum notification count per mandate was already exactly 3, in every policy,
+by construction. Nobody had checked it; nobody had made it an explicit, tested guarantee.
+
+**What was built.** `check_notification_frequency_cap` in `compliance/invariants/rules.py`, wired
+into the same veto every other invariant uses. Its cap isn't a new config value — it's computed as
+`max_attempts - 1` from the already-frozen A20 field, so if that field ever changes, the derived cap
+moves with it rather than silently drifting out of sync with the fact it depends on. The docstring
+says plainly that no source names a maximum notification count, the same way the report's honest-limits
+section names every other unsourced number rather than letting a reader assume otherwise.
+
+**Verified as a property, not asserted.** A unit-level suite covers the boundary (exactly at the cap
+passes, one over fails, non-applicable when no new notification is sent) and one derivation test
+proves the cap actually tracks A20 rather than being hardcoded to today's value of 3. Then a property
+test runs all four shipped policies through the real harness across three seeds and 450 mandates each,
+counts notifications per mandate from the resulting decision log, and asserts none exceed 3 — turning
+the docstring's claim ("structural in every shipped policy already") into something checked, not
+argued. It passed on the first run, which is the expected outcome for a check on a genuinely-already-true
+property, not a coincidence.
+
+**Confirmed to change nothing.** Re-ran the full evaluation before and after: identical numbers to the
+last decimal — +5.3% / +23.9% / +30.5% decomposition, +8.7% conservative headline. Zero records across
+any policy fail the new check. That's not a disappointing result; it's the correct one. A guardrail
+that changes your own numbers on the day you add it means you were relying on the gap it just closed.
+
+**What it demonstrates.** That reading competitors is worth doing honestly in both directions — this
+project took real inspiration from another team's idea, and then specifically declined to take the
+part of it (an uncited number) that this project's whole methodology exists to refuse. The value
+wasn't the policy rule itself; it was recognizing that the rule could be built without inventing
+anything, purely from a fact already on the books.

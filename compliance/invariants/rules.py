@@ -23,6 +23,12 @@ class ProposedDecision:
     scheduled_retry_at: datetime | None
     notification_sent_at: datetime | None
     amount_category: str = "general"
+    # Distinct from notification_sent_at, which is also used to carry forward a PRIOR
+    # notification's timestamp for the 24h-floor check even on decisions proposing no new one.
+    # is_new_notification is specifically "does this decision itself send a fresh notification" --
+    # the frequency cap only ever counts those, never a carried-forward timestamp.
+    is_new_notification: bool = False
+    prior_notifications_sent: int = 0
 
 
 # A6 names three categories that carry the higher INR 1,00,000 no-OTP ceiling: insurance, mutual
@@ -128,6 +134,53 @@ def check_otp_ceiling(proposed: ProposedDecision, config: dict) -> ComplianceChe
     )
 
 
+INVARIANT_NOTIFICATION_FREQUENCY = "INV-NOTIFICATION-FREQUENCY-CAP"
+
+
+def check_notification_frequency_cap(proposed: ProposedDecision, config: dict) -> ComplianceCheck:
+    """A guardrail with no cited regulatory source, and that absence is stated rather than hidden.
+
+    A5/Clause 6(a) is a TIMING floor -- 24h between notification and debit -- not a COUNT ceiling.
+    No source in this project's research names a maximum number of times a customer may be
+    re-notified across a retry sequence. Six competing Track 03 submissions were read while
+    preparing this project; the strongest of them hardcoded a "max 3 comms/case" business rule with
+    no citation at all. Copying an uncited number would repeat exactly the A4 mistake this project
+    already corrected once (claiming a regulatory constraint that does not exist) -- so this is not
+    that. The cap here is DERIVED from A20, which *is* cited (Razorpay's documented 4-attempt halt):
+    a retry can only be proposed below the attempt cap, so a mandate can receive at most
+    max_attempts - 1 notifications before the final attempt-exhausted decision, which carries none.
+
+    Structural in every shipped policy already -- see docs/build_log.md entry 30 -- so this check is
+    not expected to ever fail against real behaviour. It exists as a runtime veto so a future policy
+    that re-notifies more than once per attempt, or otherwise breaks the structural bound, is caught
+    rather than trusted, the same reasoning as every other invariant in this file.
+    """
+    max_attempts = config["retry_policy_shared"]["max_attempts"]["value"]
+    cap = max_attempts - 1
+    description = (
+        f"No mandate may receive more than {cap} pre-transaction notifications "
+        f"(derived from the {max_attempts}-attempt halt cap, A20)"
+    )
+
+    if not proposed.is_new_notification:
+        return ComplianceCheck(
+            invariant_id=INVARIANT_NOTIFICATION_FREQUENCY,
+            description=description,
+            passed=True,
+            applicable=False,
+            detail="This decision does not send a new notification",
+        )
+
+    total_after = proposed.prior_notifications_sent + 1
+    passed = total_after <= cap
+    return ComplianceCheck(
+        invariant_id=INVARIANT_NOTIFICATION_FREQUENCY,
+        description=description,
+        passed=passed,
+        detail=f"This would be notification {total_after} of at most {cap}",
+    )
+
+
 def apply_compliance_veto(decision_type, checks: list):
     """The veto itself: a non-compliant retry becomes a blocked one, and nothing else changes.
 
@@ -152,7 +205,7 @@ def apply_compliance_veto(decision_type, checks: list):
     return decision_type
 
 
-ALL_INVARIANTS = (check_notification_timing, check_otp_ceiling)
+ALL_INVARIANTS = (check_notification_timing, check_otp_ceiling, check_notification_frequency_cap)
 
 
 def evaluate_all(proposed: ProposedDecision, config: dict) -> list[ComplianceCheck]:

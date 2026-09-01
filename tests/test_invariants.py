@@ -114,4 +114,7 @@ def test_is_compliant_requires_all_invariants(config):
         notification_sent_at=BASE_TIME,
     )
     assert not is_compliant(good_timing_bad_amount, config)
-    assert len(evaluate_all(good_timing_bad_amount, config)) == 2
+    # 3 invariants now (notification timing, OTP ceiling, notification frequency cap added in
+    # entry 30) -- this decision doesn't set is_new_notification, so the frequency check is
+    # correctly not-applicable here rather than adding a second failure.
+    assert len(evaluate_all(good_timing_bad_amount, config)) == 3

@@ -305,6 +305,7 @@ def main() -> None:
                 amount_inr=amount_inr,
                 scheduled_retry_at=decision.scheduled_retry_at,
                 notification_sent_at=decision.notification_to_send_at,
+                is_new_notification=decision.notification_to_send_at is not None,
             ),
             config,
         )

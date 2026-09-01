@@ -110,6 +110,7 @@ def decide_and_check(policy, state: PolicyState, config: dict) -> DecisionType:
         scheduled_retry_at=decision.scheduled_retry_at,
         notification_sent_at=decision.notification_to_send_at,
         amount_category=rbi_category_for(state.mandate.amount_type.value),
+        is_new_notification=decision.notification_to_send_at is not None,
     )
     checks = evaluate_all(proposed, config)
     return apply_compliance_veto(decision.decision_type, checks)

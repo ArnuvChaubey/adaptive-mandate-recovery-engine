@@ -183,6 +183,7 @@ def run_policy_on_batch(
         recovered = False
         days_to_recovery: float | None = None
         notification_sent_at: datetime | None = None
+        notifications_sent = 0
 
         while attempt_number <= max_attempts:
             state = PolicyState(
@@ -204,6 +205,8 @@ def run_policy_on_batch(
                 # Without this the category defaulted to "general" and A6's higher ceiling could
                 # never apply to anything -- see rbi_category_for and build log entry 26.
                 amount_category=rbi_category_for(mandate.amount_type.value),
+                is_new_notification=decision.notification_to_send_at is not None,
+                prior_notifications_sent=notifications_sent,
             )
             checks = evaluate_all(proposed, config)
             compliant = all(c.passed for c in checks)
@@ -264,6 +267,7 @@ def run_policy_on_batch(
             assert retry_at is not None
             if decision.notification_to_send_at is not None:
                 notification_sent_at = decision.notification_to_send_at
+                notifications_sent += 1
 
             day_index = (retry_at - mandate.created_at).days
             notification_delivered = bool(
