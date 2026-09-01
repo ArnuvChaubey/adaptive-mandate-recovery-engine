@@ -4,7 +4,8 @@ tells you, independently, whether every record is exactly as written.
 
     python -m audit.verify_chain
     python -m audit.verify_chain eval/reports/decision_log_adaptive.jsonl
-    python -m audit.verify_chain --tamper-demo   # edits a scratch copy and shows the break
+    python -m audit.verify_chain --tamper-demo                  # tampers with the live test-mode log
+    python -m audit.verify_chain --tamper-demo --path <file>    # or any other log
 """
 
 import argparse
@@ -44,14 +45,31 @@ def _check_one(path: Path) -> str:
     return "tampered"
 
 
-def _tamper_demo() -> None:
+_DEFAULT_TAMPER_TARGETS = [
+    # Live test-mode first, deliberately -- the point of the demo is stronger when the record
+    # being edited is one a viewer just watched get written against a real Razorpay entity, not an
+    # arbitrary row from the 300-record simulated batch. Falls through to the batch log only if no
+    # live run has happened yet.
+    "eval/reports/live_test_mode_decisions.jsonl",
+    "eval/reports/decision_log_adaptive.jsonl",
+]
+
+
+def _tamper_demo(explicit_path: str | None) -> None:
     """Proves the check is real by breaking a real log on purpose and showing it get caught."""
-    source = Path("eval/reports/decision_log_adaptive.jsonl")
-    if not source.exists():
-        raise SystemExit(
-            "no adaptive log to demo against -- run "
-            "`python -m eval.run_eval --policies adaptive --write-log` first"
-        )
+    if explicit_path:
+        source = Path(explicit_path)
+        if not source.exists():
+            raise SystemExit(f"{source} not found")
+    else:
+        source = next((p for p in map(Path, _DEFAULT_TAMPER_TARGETS) if p.exists()), None)
+        if source is None:
+            raise SystemExit(
+                "no decision log to demo against -- run "
+                "`python -m integration.razorpay_test_mode.live_batch` "
+                "or `python -m eval.run_eval --policies adaptive --write-log` first"
+            )
+
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / "tampered.jsonl"
         shutil.copy(source, scratch)
@@ -59,11 +77,14 @@ def _tamper_demo() -> None:
         lines = scratch.read_text().splitlines()
         target = len(lines) // 2
         record = json.loads(lines[target])
-        print(f"  Before: record {target} amount_inr = {record.get('amount_inr')}")
+        order_id = record.get("metadata", {}).get("retry_order_id")
+        label = f"order {order_id}" if order_id else f"record {target}"
+        print(f"  Tampering with {source}")
+        print(f"  Before: {label}, amount_inr = {record.get('amount_inr')}")
         record["amount_inr"] = 999_999.0
         lines[target] = json.dumps(record)
         scratch.write_text("\n".join(lines) + "\n")
-        print(f"  After:  record {target} amount_inr = 999999.0  (edited directly in the file)")
+        print(f"  After:  {label}, amount_inr = 999999.0  (edited directly in the file)")
         print()
 
         print("  Verifying the tampered copy:")
@@ -77,10 +98,14 @@ def main() -> None:
         "--tamper-demo", action="store_true",
         help="edit a scratch copy of a real log and show verification catch it",
     )
+    parser.add_argument(
+        "--path", default=None,
+        help="with --tamper-demo, which log to tamper with (default: the live test-mode log)",
+    )
     args = parser.parse_args()
 
     if args.tamper_demo:
-        _tamper_demo()
+        _tamper_demo(args.path)
         return
 
     paths = [Path(p) for p in (args.paths or DEFAULT_PATHS)]
