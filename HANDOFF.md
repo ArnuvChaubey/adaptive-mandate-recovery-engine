@@ -33,11 +33,11 @@ Built as a submission for Razorpay's AI Buildathon Track 03 (AI Revenue Recovery
 | Deadline | **5 September 2026**, applications close |
 | Submission | Public GitHub repo + unlisted 5-min pitch video + 12-question Google Form (`forms.gle/d9r2gvxp8cmoZhon9`) |
 | Commits | 45 |
-| Tracked files | 96 |
+| Tracked files | 97 |
 | Python | 6,551 lines |
-| Tests | **164 passing** (`python -m pytest tests/ -q`) |
+| Tests | **164 passing** (`pytest -q`) |
 | Assumptions | 36 documented (A4 REFUTED) |
-| Build-log entries | 32 |
+| Build-log entries | 33 |
 | Sensitivity scenarios | 19 + 8 AI-generated attacks (redteam count varies run to run) |
 | Frozen config hash | `eaf9126d9797632f19829f6374e10806ca066b2d` |
 | Working tree | clean, committed, **pushed** |
@@ -208,7 +208,7 @@ cd path/to/repo
 source .venv/bin/activate
 
 # tests
-python -m pytest tests/ -q                                    # 104 passing
+pytest -q                                                    # 164 passing
 
 # the headline numbers
 python -m eval.run_eval --policies baseline,compliance_aware_baseline,adaptive,adaptive_hedged \

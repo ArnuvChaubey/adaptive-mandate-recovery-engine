@@ -1321,3 +1321,50 @@ verified intact end to end. All four clauses hold.
 against the code costs an hour and occasionally returns something you did not know about your own
 system. The requirement was met the whole time; the interesting part was the reason a rule everyone
 would assume is load-bearing turns out never to carry any load at all.
+
+## 33. `pytest` and `python -m pytest` are not the same command
+
+**What happened.** Mid-rehearsal for the demo video, running the beat that opens with the test suite:
+
+```
+$ pytest tests/ -q
+E   ModuleNotFoundError: No module named 'audit'
+E   ModuleNotFoundError: No module named 'simulator'
+E   ModuleNotFoundError: No module named 'compliance'
+...
+!!!! Interrupted: 19 errors during collection !!!!
+```
+
+Nineteen collection errors. Every project module unimportable. On a suite that had been passing 164/164
+all evening.
+
+**Why.** `python -m pytest` inserts the current working directory at the front of `sys.path`. The bare
+`pytest` console script does not. This repo had no pytest configuration at all — no `pyproject.toml`,
+no `pytest.ini`, no root `conftest.py` — so imports worked under one invocation and failed completely
+under the other, and which one you got depended entirely on which you happened to type.
+
+Every command run against this suite during development used `python -m pytest`. The failing form had
+never once been typed.
+
+**Why it is worse than a personal habit.** `pytest` is the obvious command. It is what a reviewer
+cloning this repo would type, and it is what the demo script had written into it — because the script
+was written to read naturally, not transcribed from what had actually been run. **A judge evaluating
+"does it run, is it structured, would you trust it" would have opened the repo, typed the shortest
+sensible command, and watched the whole suite fail to import.** That is a worse first impression than
+any bug in the suite itself, and there would have been no obvious way for them to know the code was
+fine.
+
+**The fix.** A minimal `pyproject.toml` with `pythonpath = ["."]` and `testpaths = ["tests"]`, so all
+three forms — `pytest`, `pytest tests/ -q`, `python -m pytest` — work identically. Verified all three
+against the full 164-test suite rather than assuming the config took effect.
+
+**How it was found, which is the whole point.** Not by a test, and not by review. By running the exact
+command a reader is told to run, in a clean terminal, as part of rehearsing the video — the same
+mechanism that caught entry 31 the same evening. Two real defects in one rehearsal, both of them
+invisible to a suite that passes, both only reachable by performing the sequence exactly as an outsider
+would encounter it.
+
+**What it demonstrates.** That "the tests pass" is a claim about a command, not about a codebase, and
+the two diverge the moment your habits differ from your documentation. Also the narrower and more
+useful lesson: documentation that was written rather than transcribed will eventually tell someone to
+run something nobody has ever run.

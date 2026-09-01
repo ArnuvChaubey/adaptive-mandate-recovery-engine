@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+# Without this, a bare `pytest` fails to import every project module while
+# `python -m pytest` works fine -- the difference is that `python -m` puts the current
+# directory on sys.path and the bare console script does not.
+#
+# That distinction is invisible if you always happen to type one form, and it means anyone
+# who clones this repo and runs the obvious command gets 19 collection errors instead of a
+# passing suite. Found the night before recording the demo video, by typing the command the
+# README tells a reader to type instead of the one habit produces. See docs/build_log.md
+# entry 33.
+pythonpath = ["."]
+testpaths = ["tests"]
