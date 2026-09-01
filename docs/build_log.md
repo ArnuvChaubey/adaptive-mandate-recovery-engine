@@ -1368,3 +1368,45 @@ would encounter it.
 the two diverge the moment your habits differ from your documentation. Also the narrower and more
 useful lesson: documentation that was written rather than transcribed will eventually tell someone to
 run something nobody has ever run.
+
+## 34. The number this project stands behind was the least visible number in its own report
+
+**What happened.** Rehearsing the video beat where the narration says *"what survives, measured against
+the strongest baseline I could build, is +8.7% — that's the one I stand behind"*, a check for where
+that figure actually appears on screen:
+
+```
+$ grep -c "8\.7" eval/reports/report.html
+2
+```
+
+Twice. Both inside one row of a nineteen-row sensitivity table. Meanwhile the flattering total
+(+30.5%) had a card at the top of the page, the money figures had four cards, and the oracle ceiling
+had three. **The single most defensible number in the project was the hardest one to find in its own
+report** — while every number it was chosen *over* was displayed prominently. A report arranged that
+way argues against its own thesis.
+
+**Fixed** by rendering the conservative headline as cards at the top of the sensitivity section, ahead
+of the table, with the framing stated in the section's own text: *the number this project reports is
+the worst row in this table, not the best or the median.*
+
+**A subtler bug inside the fix, caught before it shipped.** The first implementation selected the
+headline by taking `min()` over the table's recovery-rate lifts. That produced **+6.4% / +34.6%**, not
+the +8.7% / +38.2% everything else in the project reports. The two are different questions:
+
+  - `baseline_strongest_spread` pins the *baseline* to its best cadence ([3, 7, 14]) and asks whether
+    the candidate still wins. That is the conservative headline.
+  - The table's minimum row is the most adverse *world*, which is a different claim about a different
+    thing.
+
+`eval/sensitivity.py` resolves it by scenario name. Computing it any other way in the report would
+have silently printed a different headline than the sweep prints, than `HANDOFF.md` claims, and than
+the video narration says — three sources disagreeing, with no error anywhere, because each would have
+been internally consistent. Now resolved by name in both places, cross-checked by running both and
+comparing: +8.7% and +38.2%, identical.
+
+**What it demonstrates.** That where a number sits on a page is itself a claim about how much you
+believe it, and that a report can be perfectly accurate while being arranged to mislead. Also, again:
+the fix for a presentation problem introduced a correctness problem, and the only reason it was caught
+was cross-checking the new output against the existing one rather than trusting that a reasonable-looking
+implementation computes the same thing.

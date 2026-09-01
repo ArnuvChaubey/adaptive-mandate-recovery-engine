@@ -174,9 +174,49 @@ def _sensitivity() -> str:
         )
     positive = sum(1 for s in scenarios
                    if s["lift_candidate_vs_baseline"]["recovery_rate_recoverable_only"] > 0)
+
+    # The conservative headline -- lift against the STRONGEST BASELINE we could construct, which is a
+    # specific named scenario, NOT the worst row in the table. Those are different things and the
+    # distinction is easy to get wrong: `baseline_strongest_spread` pins the baseline to its best
+    # cadence ([3,7,14]) and asks "can we still beat it"; the table's minimum row is instead the most
+    # adverse *world*, which is a different question. `eval/sensitivity.py` resolves it by name, so
+    # this does too -- computing it any other way here would silently print a different headline than
+    # the sweep does, than HANDOFF.md claims, and than the video says.
+    #
+    # It appears here because until now it existed nowhere in this report except as one row among
+    # nineteen, while the flattering total got its own card at the top of the page. A report whose
+    # most defensible number is its least visible one is arguing against itself.
+    strongest = next(
+        (s for s in scenarios if s["name"] == "baseline_strongest_spread"), None
+    )
+    if strongest is None:
+        return (
+            f'<p class="sub">Recovery lift is positive in <b>{positive} of {len(scenarios)}</b>.</p>'
+            '<div class="scroll"><table><tr><th>Scenario</th><th>Rate lift</th><th>Value lift</th>'
+            f'<th>Waste lift</th></tr>{rows}</table></div>'
+        )
+    worst = strongest
+    wl = worst["lift_candidate_vs_baseline"]
+    headline = (
+        f'<div class="grid" style="margin-bottom:18px">'
+        f'<div class="card"><div class="label">Conservative headline — recovery</div>'
+        f'<div class="value pos">{_signed(wl["recovery_rate_recoverable_only"])}</div>'
+        f'<div class="note">vs the strongest baseline cadence in the sweep, not the median</div></div>'
+        f'<div class="card"><div class="label">Conservative headline — value</div>'
+        f'<div class="value pos">{_signed(wl["recovered_value_inr"])}</div>'
+        f'<div class="note">same scenario, the hardest comparison available</div></div>'
+        f'<div class="card"><div class="label">Scenarios positive</div>'
+        f'<div class="value">{positive} / {len(scenarios)}</div>'
+        f'<div class="note">every declared assumption swept</div></div>'
+        f'</div>'
+    )
+
     return (
         f'<p class="sub">Each scenario pins a low-confidence assumption to a point inside its '
-        f'already-declared range. Recovery lift is positive in <b>{positive} of {len(scenarios)}</b>.</p>'
+        f'already-declared range. Recovery lift is positive in <b>{positive} of {len(scenarios)}</b>. '
+        f'<b>The number this project reports is the worst row in this table, not the best or the '
+        f'median</b> — measured against whichever baseline turned out strongest.</p>'
+        f'{headline}'
         '<div class="scroll"><table><tr><th>Scenario</th><th>Rate lift</th><th>Value lift</th>'
         f'<th>Waste lift</th></tr>{rows}</table></div>'
     )

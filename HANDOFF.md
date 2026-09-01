@@ -37,7 +37,7 @@ Built as a submission for Razorpay's AI Buildathon Track 03 (AI Revenue Recovery
 | Python | 6,551 lines |
 | Tests | **164 passing** (`pytest -q`) |
 | Assumptions | 36 documented (A4 REFUTED) |
-| Build-log entries | 33 |
+| Build-log entries | 34 |
 | Sensitivity scenarios | 19 + 8 AI-generated attacks (redteam count varies run to run) |
 | Frozen config hash | `eaf9126d9797632f19829f6374e10806ca066b2d` |
 | Working tree | clean, committed, **pushed** |
