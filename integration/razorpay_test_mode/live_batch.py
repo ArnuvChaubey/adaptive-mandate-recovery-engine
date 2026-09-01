@@ -52,6 +52,7 @@ from dotenv import load_dotenv
 
 from audit.decision_log_schema.records import (
     DecisionLog,
+    load_chain_tip,
     DecisionRecord,
     DecisionType,
     Source,
@@ -225,7 +226,10 @@ def main() -> None:
     client = get_client()
     config = load_config()
     policy = AdaptivePolicy()
-    log = DecisionLog()
+    # Continues the existing file's chain rather than starting a second, disconnected genesis
+    # partway through it -- this script runs as a fresh process every invocation, and running it
+    # twice used to silently destroy the first run's real audit history. See entry 31.
+    log = DecisionLog(seed_hash=load_chain_tip(OUT_PATH))
 
     print()
     print("=" * 90)
@@ -360,7 +364,7 @@ def main() -> None:
         print(f"  [{i + 1:2d}] {fetched['id']:22s} INR {amount_inr:>9,.2f}  "
               f"{error_reason:34s} -> {recorded_type.value:22s} {decision.rule_id}{fired_tag}")
 
-    log.write_jsonl(OUT_PATH)
+    log.write_jsonl(OUT_PATH, append=True)
 
     escalations = sum(
         1 for r in log if r.escalation_action is not None

@@ -1227,3 +1227,46 @@ project took real inspiration from another team's idea, and then specifically de
 part of it (an uncited number) that this project's whole methodology exists to refuse. The value
 wasn't the policy rule itself; it was recognizing that the rule could be built without inventing
 anything, purely from a fact already on the books.
+
+## 31. Rehearsing the exact video sequence found a bug the night before recording
+
+**What happened.** The demo script calls `live_batch.py` twice in a row — once to show a compliant
+retry firing, once to show the above-ceiling case escalating and firing nothing. Running that exact
+sequence, back to back, as a dry run before recording: the second call's summary showed only its own
+one record. The four Orders fired by the first call had vanished from the file.
+
+**Root cause.** `live_batch.py` is a script, invoked fresh each time — `DecisionLog()` starts empty on
+every run, and `write_jsonl` opened its target file in `"w"` mode unconditionally. The second
+invocation didn't add to the first invocation's audit trail. It erased it.
+
+**Why this is worse than a demo inconvenience.** This project's central claim is that the audit trail
+is trustworthy — hash-chained, tamper-evident, checkable independent of who wrote it (entry 29).
+A logging path that silently destroys real history every time its own script runs twice is a direct
+contradiction of that claim, sitting in the one file (`live_test_mode_decisions.jsonl`) that holds
+the only real-money-adjacent evidence in the whole project. It had been there since entry 25 and
+nothing had caught it, because nothing had run the script twice against the same file and then
+checked.
+
+**The fix.** `DecisionLog` now accepts a `seed_hash` at construction, so a new process can continue an
+existing chain instead of starting a second, disconnected genesis in the middle of it.
+`load_chain_tip(path)` reads a file's last record's hash (or `GENESIS_HASH` if none exists) in one
+pass over the last line, not the whole file. `write_jsonl` takes an `append` flag: `False` (the
+default, unchanged) for callers like `eval/run_eval.py` that correctly want a fresh, complete,
+self-consistent batch each run; `True` for `live_batch.py`, which represents an ongoing real-world log
+that must never lose what's already there. Both are correct behaviors for their own caller — the bug
+was that only one of them existed.
+
+**Verified two ways.** Six tests, including one that reproduces the old destructive behavior on
+purpose (`test_without_the_fix_a_naive_second_run_would_have_destroyed_the_first`) so the regression
+this guards against is unambiguous, and one that constructs two separate `DecisionLog` instances the
+way two separate process invocations actually would, writes both, and confirms the combined file
+verifies as one intact chain. Then run for real: the exact three-command video sequence, clean —
+`live_batch --count 4` (four Orders fire), `live_batch --min-amount 15000` (the ₹41,000 case escalates
+and fires nothing), `verify_chain --tamper-demo` (edits one of the four real Orders' records and gets
+caught). All five records from both runs, one continuous verified chain, at every step.
+
+**What it demonstrates.** The value of rehearsing the actual sequence exactly as it will be performed,
+not just testing each piece in isolation — every individual command had already been verified
+correct on its own. The bug only existed in the seam between two runs, which nothing had exercised
+until the dry run that mattered. Found the night before recording is still found before recording,
+not during it.

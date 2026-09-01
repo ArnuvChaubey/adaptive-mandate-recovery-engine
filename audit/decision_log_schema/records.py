@@ -124,6 +124,27 @@ class ChainVerification:
     detail: str = ""
 
 
+def load_chain_tip(path: Path | str) -> str:
+    """The hash a new DecisionLog must be seeded with to continue an existing file's chain.
+
+    Returns GENESIS_HASH if the file doesn't exist or is empty -- correct in both cases, since a
+    log with nothing to continue from should start its own chain from genesis, same as the first
+    run ever would. Reads only the last line, not the whole file, so this stays cheap regardless of
+    how long a live audit trail has grown.
+    """
+    path = Path(path)
+    if not path.exists():
+        return GENESIS_HASH
+    last_line = None
+    for line in path.read_text().splitlines():
+        if line.strip():
+            last_line = line
+    if last_line is None:
+        return GENESIS_HASH
+    record = json.loads(last_line)
+    return record.get("record_hash", GENESIS_HASH)
+
+
 def verify_chain(chained_records: list[dict[str, Any]]) -> ChainVerification:
     """Recomputes every record's digest from its content and checks it against what was stored,
     then checks that each record's `prev_hash` matches the actual previous record's digest.
@@ -176,12 +197,19 @@ class DecisionLog:
     reader actually checks, independent of whether they trust the process that wrote the file.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, seed_hash: str = GENESIS_HASH) -> None:
+        # seed_hash lets a NEW process continue an EXISTING file's chain instead of starting a
+        # second, disconnected genesis in the middle of it. Found the need for this the night
+        # before recording the demo video: live_batch.py constructs a fresh DecisionLog() on every
+        # invocation, and every invocation used to overwrite the file from scratch -- so running it
+        # twice in a row (once for a retry case, once for an escalation case, exactly what the video
+        # does) silently destroyed the first run's real audit history. See docs/build_log.md entry 31.
+        self._seed_hash = seed_hash
         self._records: list[DecisionRecord] = []
         self._hashes: list[str] = []
 
     def append(self, record: DecisionRecord) -> None:
-        prev = self._hashes[-1] if self._hashes else GENESIS_HASH
+        prev = self._hashes[-1] if self._hashes else self._seed_hash
         self._hashes.append(_record_digest(prev, record.to_json_dict()))
         self._records.append(record)
 
@@ -206,11 +234,22 @@ class DecisionLog:
         permitted to emit a decision that violates a compliance floor."""
         return [r for r in self._records if any(not c.passed for c in r.compliance_checks)]
 
-    def write_jsonl(self, path: Path | str) -> None:
+    def write_jsonl(self, path: Path | str, append: bool = False) -> None:
+        """Writes this log's records to `path`.
+
+        `append=False` (default) overwrites the file -- correct for a caller like `eval/run_eval.py`
+        producing one complete, self-consistent batch per invocation, where a stale prior file must
+        not linger. `append=True` opens in "a" mode instead, so a caller like `live_batch.py` --
+        invoked fresh each time, but representing an ongoing real-world audit trail -- adds to the
+        file rather than replacing it. Pair `append=True` with `seed_hash=load_chain_tip(path)` at
+        construction time, or the newly-appended records will chain from GENESIS_HASH instead of
+        from the file's real prior tail, and `verify_chain` will correctly report that break as
+        broken, because it *is* broken -- just not from tampering.
+        """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        prev = GENESIS_HASH
-        with open(path, "w") as f:
+        prev = self._seed_hash
+        with open(path, "a" if append else "w") as f:
             for record, record_hash in zip(self._records, self._hashes):
                 chained = {**record.to_json_dict(), "prev_hash": prev, "record_hash": record_hash}
                 f.write(json.dumps(chained) + "\n")
