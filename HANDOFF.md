@@ -38,7 +38,7 @@ Built as a submission for Razorpay's AI Buildathon Track 03 (AI Revenue Recovery
 | Tests | **157 passing** (`python -m pytest tests/ -q`) |
 | Assumptions | 36 documented (A4 REFUTED) |
 | Build-log entries | 31 |
-| Sensitivity scenarios | 19 + 6 AI-generated attacks (redteam count varies run to run) |
+| Sensitivity scenarios | 19 + 8 AI-generated attacks (redteam count varies run to run) |
 | Frozen config hash | `eaf9126d9797632f19829f6374e10806ca066b2d` |
 | Working tree | clean, committed, **pushed** |
 
@@ -130,10 +130,11 @@ the decision loop.** It is the single strongest answer to the "AI judgment" crit
 **Sensitivity: 19/19 scenarios positive**, +6.4% to +50.2%, median +28.4%. Conservative headline
 **+8.7%** vs strongest baseline.
 
-**Red team: 6 AI-generated attacks, 0 landed**, weakest **+3.9%** — below the +6.4% floor of the
-hand-written sweep, so the model again found a harder case than we wrote ourselves. Its hardest attack
-(`compliance_asymmetry_neutralised_low_ticket`) deliberately targets the compliance asymmetry that
-shrank in entry 26, which is a sharp piece of adversarial reasoning. The red team is LLM-generated and
+**Red team: 8 AI-generated attacks, 0 landed**, weakest **+1.9%**, median +14.7% — below the +6.4%
+floor of the hand-written sweep, so the model again found a harder case than we wrote ourselves. Its
+hardest attack (`escalation_dead_end_with_correlated_channel_failure`) constructs a world where the
+escalation path is itself broken, which attacks A35 — the assumption carrying the ₹ headline — from a
+direction the hand-written sweep never tried. The red team is LLM-generated and
 its output is not stable run to run — re-verify with `python -m eval.redteam` before quoting a specific
 number in the video or form rather than copying this one.
 
