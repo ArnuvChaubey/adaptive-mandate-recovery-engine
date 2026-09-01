@@ -1128,3 +1128,55 @@ the ones you have written down as settled — a documented assumption is exactly
 getting re-read. Also: the honest response to finding your headline weakness was never real is to say
 so plainly, not to quietly enjoy the upgrade. A1 was the answer to "what's the weakest part of this?"
 for the entire project. That answer is now A35 and A13, and the interview answer has to change with it.
+
+## 29. Reading four other teams' repos and stealing the one idea that was actually better
+
+**What happened.** Had six other Track 03 submissions analyzed — same track, same brief, same bar
+("compliant escalation, stopping rules, and an audit trail"). Two were near-duplicate forks with no
+real Razorpay contact and no comparative methodology at all. One had a fabricated ROC-AUC — a
+hardcoded `0.912` constant presented as a measured discrimination score. One had no decision or
+execution code at all yet. Of the two genuinely strong ones, one's headline number was real and
+independently reproducible but rested on a baseline denied capabilities the candidate had. The
+strongest of the six had real test-mode Razorpay calls, real regulation citations, 111 passing tests
+— and a SHA-256 hash-chained audit log with tamper detection.
+
+That last piece was the one idea worth taking. Every `DecisionRecord` in this project was already
+individually correct, but nothing stopped one from being edited after being written — append-only was
+a convention, not a proof. Six repos' worth of reading turned up exactly one thing that made this
+project's own stated pillar (audit trail) genuinely stronger, and that's worth being honest about:
+reading competitors isn't about finding a rising tide of threats, it's about finding the one idea that
+survives contact with your own architecture.
+
+**What was built.** Every record appended to a `DecisionLog` now gets a digest that's a function of
+its own content *and* the previous record's digest — `record_hash = sha256(prev_hash + content)`.
+`write_jsonl` persists both fields; `verify_chain` is a module-level function that takes plain dicts,
+not live objects, specifically so a reader in a completely different process can check the file on
+disk independently of trusting whatever wrote it. Two distinct failure modes are caught, not one: a
+record edited after the fact (its own recomputed digest no longer matches what's stored), and a record
+spliced in, deleted, or reordered (its `prev_hash` no longer matches the real predecessor, even if the
+inserted record is internally self-consistent on its own terms). An attacker would have to rewrite
+every record from the edit point to the end to hide a change — the standard hash-chain property.
+
+**Verified, not assumed.** Nine tests, each proving one specific way of tampering gets caught at the
+exact point it happened: editing a value, deleting a record, reordering two records, splicing in a
+fabricated record with a guessed hash, a record missing chain fields entirely (a regression guard for
+some future write path forgetting to attach them), and a check that chain order actually matters, not
+just record content. Then it was run for real: `python -m audit.verify_chain --tamper-demo` copies a
+real 305-record adaptive-policy log to a scratch file, edits one amount in the middle, and shows
+verification catch it at the exact record index — using real data from this project's own evaluation
+run, not a synthetic example built to be caught.
+
+**One thing the check itself had to get right on its own merits.** The two live-mode log files
+written before this change have no chain fields at all. The first version of `verify_chain` reported
+that identically to actual tampering — "TAMPERING DETECTED" on a file that simply predates the schema.
+That's a false alarm dressed as a finding, the same category of mistake as claiming a benchmark
+measured something it didn't (entry 27). Fixed by distinguishing "no chain fields, likely legacy" from
+"chain fields present but broken" before the tool ever gets to say something as strong as "tampering."
+A verification tool that cries wolf on its own blind spots is worse than one that says nothing.
+
+**What it demonstrates.** That competitive research is worth doing honestly in both directions —
+crediting a genuinely good idea found in someone else's work, and not pretending six other teams add
+up to "no real competition" when at least one of them is a serious, well-tested, honestly-documented
+submission. The value wasn't in copying their architecture; it was in recognizing the one gap they'd
+closed that this project hadn't, and closing it the same way everything else here gets closed: with a
+test that proves the thing works by first proving it can fail.

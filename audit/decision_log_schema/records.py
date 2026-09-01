@@ -12,6 +12,7 @@ the rule that produced it. Two properties matter and are non-negotiable:
    same queries work over both.
 """
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -94,13 +95,94 @@ class DecisionRecord:
         return d
 
 
+GENESIS_HASH = "0" * 64  # the "previous hash" a chain's first record chains to; not a real digest
+
+
+def _canonical(d: dict[str, Any]) -> str:
+    """Deterministic serialization so the same record always hashes to the same digest regardless
+    of dict insertion order -- `sort_keys=True` is what makes that a guarantee, not a convention."""
+    return json.dumps(d, sort_keys=True, default=str)
+
+
+def _record_digest(prev_hash: str, record_dict: dict[str, Any]) -> str:
+    """The hash for one record: a function of its own content AND the previous record's hash.
+
+    That second part is what makes this a *chain* rather than a list of individually-checksummed
+    records. Editing record 5 changes record 5's digest, which no longer matches what record 6
+    recorded as its `prev_hash` -- the break is visible at record 6, not silently absorbed. An
+    attacker would have to rewrite every record from the edit point to the end to hide the change.
+    """
+    return hashlib.sha256((prev_hash + "|" + _canonical(record_dict)).encode()).hexdigest()
+
+
+@dataclass(frozen=True)
+class ChainVerification:
+    """The result of checking a decision log's hash chain end to end."""
+    intact: bool
+    records_checked: int
+    broken_at_index: int | None = None
+    detail: str = ""
+
+
+def verify_chain(chained_records: list[dict[str, Any]]) -> ChainVerification:
+    """Recomputes every record's digest from its content and checks it against what was stored,
+    then checks that each record's `prev_hash` matches the actual previous record's digest.
+
+    Two distinct failure modes, both caught: a record edited after being written (its own recomputed
+    digest no longer matches its stored `record_hash`), and a record spliced in or deleted (its
+    `prev_hash` no longer matches the real predecessor's `record_hash`, even if the spliced record is
+    internally self-consistent). Takes plain dicts, not `DecisionRecord`, so it can verify a JSONL
+    file read back from disk in a completely separate process -- which is the actual threat model:
+    proving the file on disk wasn't altered after `write_jsonl` wrote it, not just that this run's
+    in-memory objects agree with themselves.
+    """
+    if not chained_records:
+        return ChainVerification(intact=True, records_checked=0, detail="empty log")
+
+    expected_prev = GENESIS_HASH
+    for i, stored in enumerate(chained_records):
+        record_hash = stored.get("record_hash")
+        prev_hash = stored.get("prev_hash")
+        if record_hash is None or prev_hash is None:
+            return ChainVerification(
+                intact=False, records_checked=i, broken_at_index=i,
+                detail=f"record {i} carries no chain fields -- not written by a chaining DecisionLog",
+            )
+        if prev_hash != expected_prev:
+            return ChainVerification(
+                intact=False, records_checked=i, broken_at_index=i,
+                detail=f"record {i}'s prev_hash does not match record {i - 1}'s record_hash -- "
+                       f"a record was edited, inserted, deleted, or reordered",
+            )
+        content = {k: v for k, v in stored.items() if k not in ("prev_hash", "record_hash")}
+        recomputed = _record_digest(prev_hash, content)
+        if recomputed != record_hash:
+            return ChainVerification(
+                intact=False, records_checked=i, broken_at_index=i,
+                detail=f"record {i}'s content does not match its own recorded hash -- it was "
+                       f"edited after being written",
+            )
+        expected_prev = record_hash
+
+    return ChainVerification(intact=True, records_checked=len(chained_records))
+
+
 class DecisionLog:
-    """Append-only decision log. Queryable after the fact, serializable to JSONL."""
+    """Append-only decision log. Queryable after the fact, serializable to JSONL.
+
+    Hash-chained: each appended record's digest depends on the previous record's digest, so the
+    written file is tamper-evident, not merely append-only by convention. `write_jsonl` persists the
+    chain fields; `verify_chain` (module-level, operates on the dicts read back from disk) is what a
+    reader actually checks, independent of whether they trust the process that wrote the file.
+    """
 
     def __init__(self) -> None:
         self._records: list[DecisionRecord] = []
+        self._hashes: list[str] = []
 
     def append(self, record: DecisionRecord) -> None:
+        prev = self._hashes[-1] if self._hashes else GENESIS_HASH
+        self._hashes.append(_record_digest(prev, record.to_json_dict()))
         self._records.append(record)
 
     def __len__(self) -> int:
@@ -127,6 +209,9 @@ class DecisionLog:
     def write_jsonl(self, path: Path | str) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        prev = GENESIS_HASH
         with open(path, "w") as f:
-            for record in self._records:
-                f.write(json.dumps(record.to_json_dict()) + "\n")
+            for record, record_hash in zip(self._records, self._hashes):
+                chained = {**record.to_json_dict(), "prev_hash": prev, "record_hash": record_hash}
+                f.write(json.dumps(chained) + "\n")
+                prev = record_hash
