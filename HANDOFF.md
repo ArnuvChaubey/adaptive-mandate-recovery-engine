@@ -29,18 +29,18 @@ Built as a submission for Razorpay's AI Buildathon Track 03 (AI Revenue Recovery
 |---|---|
 | Working dir | repo root |
 | Repo | `github.com/ArnuvChaubey/adaptive-mandate-recovery-engine` |
-| **Repo visibility** | **PRIVATE — must be flipped to PUBLIC before submission.** The form requires a public URL. Secret scan is clean; it is safe to flip. |
+| **Repo visibility** | **PUBLIC.** Verified live (`api.github.com` returns 200 unauthenticated). Secret scan clean. |
 | Deadline | **5 September 2026**, applications close |
 | Submission | Public GitHub repo + unlisted 5-min pitch video + 12-question Google Form (`forms.gle/d9r2gvxp8cmoZhon9`) |
-| Commits | 36 |
+| Commits | 45 |
 | Tracked files | 96 |
 | Python | 6,551 lines |
 | Tests | **149 passing** (`python -m pytest tests/ -q`) |
 | Assumptions | 36 documented (A4 REFUTED) |
 | Build-log entries | 30 |
-| Sensitivity scenarios | 19 + 5 AI-generated attacks (redteam count varies run to run) |
+| Sensitivity scenarios | 19 + 6 AI-generated attacks (redteam count varies run to run) |
 | Frozen config hash | `eaf9126d9797632f19829f6374e10806ca066b2d` |
-| Working tree | clean, committed, **not yet pushed** |
+| Working tree | clean, committed, **pushed** |
 
 **Judging criteria, verbatim from the site:** Problem taste ("did you pick something that actually
 matters"), Build quality ("does it run, is it structured, would you trust it"), **AI judgment** ("the
@@ -61,7 +61,7 @@ hashed.
 
 **If you change any value in it**, you must add a dated entry to the CHANGELOG at the bottom of
 `assumptions.md` stating what changed, why, and **explicitly whether policy results had already been
-observed**. There are six such entries; read them for the format. Then update
+observed**. There are eight such entries; read them for the format. Then update
 `meta.frozen_commit_hash` to the new commit.
 
 Changing it silently is the single worst thing you can do here.
@@ -309,12 +309,12 @@ The most important artifact after the code. The strongest entries:
 ## 10. What is LEFT to do
 
 ### Required for submission
-1. **Flip repo to public.** Safe — secret scan clean.
-2. **Record the 5-minute video** (unlisted). Not scripted yet. Should show: the reproducibility
-   command running, the HTML report, one live test-mode case, an audit-trail walkthrough, and the
-   red team.
+1. ~~**Flip repo to public.**~~ **DONE** — verified live.
+2. **Record the 5-minute video** (unlisted). **Fully scripted** — the Submission Kit artifact has a
+   timed, beat-by-beat script built around the debugging stories, not a feature tour. Nothing left
+   but sitting down and recording it.
 3. **Fill the 12-question form.** The question they read *first* is "What broke, and how you got
-   out" — draw from build log #4, #13, #14, #19.
+   out" — draw from build log #4, #13, #14, #19, or #25/#26/#29/#30 for something more recent.
 
 ### Optional, genuinely valuable
 - ~~**Execute a real recovery action**~~ — **DONE**, see build log #25. A compliant retry now fires a
