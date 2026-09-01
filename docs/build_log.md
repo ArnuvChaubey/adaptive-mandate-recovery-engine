@@ -1270,3 +1270,54 @@ not just testing each piece in isolation — every individual command had alread
 correct on its own. The bug only existed in the seam between two runs, which nothing had exercised
 until the dry run that mattered. Found the night before recording is still found before recording,
 not during it.
+
+## 32. The stopping rule that is real, enforced, and never once fires
+
+**What happened.** Checking the project line by line against Track 03's stated bar — "measured money
+recovered across a batch, with compliant escalation, stopping rules, and an audit trail" — rather than
+assuming it was satisfied. Three of the four clauses verified immediately and comprehensively. The
+fourth turned up something.
+
+`stopped_attempts_exhausted` — the decision type produced by ADAPT-003 / BASE-002, the documented
+4-attempt halt (A20) — appears **zero times across all 30 seeds and 6,000 mandates.** Every other rule
+in the ladder fires between 313 and 3,888 times.
+
+**It is not entry 26 repeating.** Called directly, ADAPT-003 fires correctly: attempt 4 returns
+`stopped_attempts_exhausted` with `notify_customer_manual_payment` attached. The rule is genuinely
+reachable. That distinction matters, and checking it before writing anything down is the difference
+between reporting a finding and inventing a defect.
+
+**The real cause is an interaction between two separately-sourced parameters.** A20 (FACT, cited) caps
+attempts at 4. A16 (ASSUMPTION, swept over [2, 4]) says a customer revokes after 2-4 *consecutive*
+failed debits. A16's threshold is always less than or equal to A20's cap, so mid-sequence revocation
+converts the mandate to `mandate_revoked` — which ADAPT-001 catches, and ADAPT-001 sits above ADAPT-003
+in the ladder — before the attempt budget can ever run out. **The documented stopping rule is real and
+enforced, but under this parameterisation it is never the binding constraint. Customer patience is.**
+
+That is a genuinely interesting property of the model rather than a flaw: it says the 4-attempt cap is
+effectively decorative in a world where customers give up first, and that the thing actually limiting
+retry budgets is a behavioural assumption with no public source, not the documented platform rule
+everyone would cite. Worth knowing before claiming the cap is what stops runaway retries.
+
+**What was missing was the test, and that is the part that should not have been missing.** ADAPT-003
+had **zero** coverage — no test asserted it fires, at the boundary or anywhere else. This project has
+now been bitten twice by rules that pass review and do nothing (entry 14's congestion window, entry
+26's OTP carve-out), and both times the missing property was reachability. Seven tests now cover it:
+the rule fires at the cap for both policy families, one attempt below the cap still retries (the
+boundary, in both directions), the stop names a real next action rather than degrading to
+`NO_ACTION_POSSIBLE`, the cap tracks the config rather than being hardcoded to today's 4, and — the
+one that documents the finding — an unrecoverable mandate at the cap stops as unrecoverable, pinning
+the ladder precedence that makes ADAPT-003 unreachable in practice so a future reordering cannot
+change it silently.
+
+**Compliance verdict against the track's bar, verified rather than asserted:** measured money —
+₹30,125,537 recovered vs ₹19,275,486 baseline across 6,000 mandates. Compliant escalation — 700
+escalations, every one carrying a named next action and the RBI clause that triggered it. Stopping
+rules — 883 unrecoverable stops, 700 escalations, 23 compliance blocks, and an attempt cap that is
+enforced by the harness loop and now provably reachable. Audit trail — every log hash-chained and
+verified intact end to end. All four clauses hold.
+
+**What it demonstrates.** That "we satisfy the requirement" is a claim like any other, and checking it
+against the code costs an hour and occasionally returns something you did not know about your own
+system. The requirement was met the whole time; the interesting part was the reason a rule everyone
+would assume is load-bearing turns out never to carry any load at all.
