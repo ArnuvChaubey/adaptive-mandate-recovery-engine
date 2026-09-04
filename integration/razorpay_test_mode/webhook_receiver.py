@@ -22,7 +22,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 
-from audit.decision_log_schema.records import DecisionLog
+from audit.decision_log_schema.records import DecisionLog, load_chain_tip
 from integration.razorpay_test_mode.idempotency import IdempotencyStore, event_key
 from integration.razorpay_test_mode.live_pipeline import process_event
 from narrator.llm_explainer.explainer import narrate
@@ -37,7 +37,12 @@ AUDIT_PATH = Path(__file__).parent.parent.parent / "eval" / "reports" / "live_we
 
 _config = load_config()
 _policy = AdaptivePolicy()
-_log = DecisionLog()
+# Seeded from the existing file's tip, not from genesis: a fresh DecisionLog() would start a new
+# chain at GENESIS_HASH, and the append below would splice a second genesis into the middle of
+# the file -- which verify_chain correctly reports as tampering. Same bug as build log entry 31
+# in live_batch.py; it survived here because this path is started by hand and had no example
+# artifact recent enough to show the missing hash fields. Found during the pre-submission audit.
+_log = DecisionLog(seed_hash=load_chain_tip(AUDIT_PATH))
 
 # Attempts seen per mandate, so a second failure on the same entity is attempt 2 and the policy's
 # stopping rule can actually fire. In-memory by design: this is a demonstration loop, and persisting
@@ -109,7 +114,8 @@ async def receive_webhook(request: Request):
 
     record = result.record
     _log.append(record)
-    _log.write_jsonl(AUDIT_PATH)
+    # append=True: rewriting the whole file each webhook truncated every prior process's history.
+    _log.write_jsonl(AUDIT_PATH, append=True)
     narration = narrate(record)
 
     print(f"[webhook] {event}: {record.decision_type.value} via {record.rule_id} "

@@ -1,43 +1,108 @@
 {
-  "generated_at": "2026-08-25T16:46:44.240651+00:00",
-  "config_frozen_commit_hash": "8e2d9a49d5e3cbea10f461e67059dc9e79f94638",
+  "generated_at": "2026-09-01T08:16:57.315646+00:00",
+  "config_frozen_commit_hash": "095826efe3962d7b3986fbf0f218be356f93ac12",
   "seeds": [
-    1
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30
   ],
   "n_mandates_per_seed": 200,
   "data_source": "simulation",
   "reports": {
     "baseline": {
       "policy_name": "baseline",
-      "n_mandates": 200,
-      "recovery_rate_recoverable_only": 0.5792349726775956,
-      "recovery_rate_all": 0.53,
-      "total_value_inr": 1805129.23,
-      "recovered_value_inr": 313851.65,
-      "total_attempts": 205,
-      "wasted_attempts": 2,
-      "wasted_attempt_rate": 0.00975609756097561,
+      "n_mandates": 6000,
+      "recovery_rate_recoverable_only": 0.6594843462246777,
+      "recovery_rate_all": 0.5968333333333333,
+      "total_value_inr": 52750072.61,
+      "recovered_value_inr": 19275486.5,
+      "total_attempts": 7179,
+      "wasted_attempts": 56,
+      "wasted_attempt_rate": 0.00780052932163254,
       "median_days_to_recovery": 1.0,
       "iqr_days_to_recovery": [
         1.0,
         1.0
-      ]
+      ],
+      "revocation_rate": 0.20216666666666666
+    },
+    "compliance_aware_baseline": {
+      "policy_name": "compliance_aware_baseline",
+      "n_mandates": 6000,
+      "recovery_rate_recoverable_only": 0.6946593001841621,
+      "recovery_rate_all": 0.6286666666666667,
+      "total_value_inr": 52750072.61,
+      "recovered_value_inr": 25336143.08,
+      "total_attempts": 7179,
+      "wasted_attempts": 56,
+      "wasted_attempt_rate": 0.00780052932163254,
+      "median_days_to_recovery": 1.0,
+      "iqr_days_to_recovery": [
+        1.0,
+        1.0
+      ],
+      "revocation_rate": 0.20216666666666666
     },
     "adaptive": {
       "policy_name": "adaptive",
-      "n_mandates": 200,
-      "recovery_rate_recoverable_only": 0.7752808988764045,
-      "recovery_rate_all": 0.69,
-      "total_value_inr": 1805129.23,
-      "recovered_value_inr": 643957.32,
-      "total_attempts": 147,
-      "wasted_attempts": 0,
-      "wasted_attempt_rate": 0.0,
-      "median_days_to_recovery": 3.466896119983658,
+      "n_mandates": 6000,
+      "recovery_rate_recoverable_only": 0.8604051565377532,
+      "recovery_rate_all": 0.7786666666666666,
+      "total_value_inr": 52750072.61,
+      "recovered_value_inr": 30125536.82,
+      "total_attempts": 5805,
+      "wasted_attempts": 119,
+      "wasted_attempt_rate": 0.02049956933677864,
+      "median_days_to_recovery": 3.0,
       "iqr_days_to_recovery": [
         1.0,
-        9.75
-      ]
+        12.0
+      ],
+      "revocation_rate": 0.05216666666666667
+    },
+    "adaptive_hedged": {
+      "policy_name": "adaptive_hedged",
+      "n_mandates": 6000,
+      "recovery_rate_recoverable_only": 0.8184162062615101,
+      "recovery_rate_all": 0.7406666666666667,
+      "total_value_inr": 52750072.61,
+      "recovered_value_inr": 28952010.17,
+      "total_attempts": 6625,
+      "wasted_attempts": 94,
+      "wasted_attempt_rate": 0.014188679245283019,
+      "median_days_to_recovery": 1.0,
+      "iqr_days_to_recovery": [
+        1.0,
+        3.0
+      ],
+      "revocation_rate": 0.09016666666666667
     }
   }
 }
