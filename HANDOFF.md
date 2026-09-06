@@ -336,19 +336,20 @@ The most important artifact after the code. The strongest entries:
 
 ---
 
-## 11. Working with this user
+## 11. Working principles
 
-- **Prioritise execution over prep artifacts.** He corrected me once for proactively writing
-  interview-prep material mid-build: *"the main goal of this project is problem solving skills."*
-  Build; write prep only when asked or in the final polish window.
-- **He wants to be challenged**, not agreed with. The whole project began as "try to destroy this."
-- **He notices when I'm wrong** and says so directly. When it happens, fix it and move on — no
-  grovelling.
-- **Be honest about failures.** Every incident in the build log came from surfacing a problem, not
-  hiding it. That discipline *is* the product.
-- **Never paste secrets in chat.** He has done it once; don't encourage it.
-- `docs/interview_prep.md` exists (gitignored) with all 100 VP-interview questions answered. It is
-  prep, not submission material.
+These are the habits that produced the results above. They are not style preferences; each one exists
+because dropping it produced a bug that is documented in the build log.
+
+- **Execution over presentation.** Build the thing, measure it, then write about it. Prep artifacts
+  written ahead of the work describe a system that does not exist yet.
+- **Adversarial by default.** The project began as an attempt to destroy its own claim, and every
+  headline revision came from that. Assume the number is wrong and go looking for the reason.
+- **Surface failures immediately.** Every incident in the build log came from stating a problem out
+  loud rather than quietly fixing it. That record is the most useful artifact here.
+- **Never commit credentials.** This repo is public. `.env` is gitignored, `.env.example` carries
+  placeholders only, and the full git history has been scanned to confirm no real key was ever
+  committed.
 
 ---
 
